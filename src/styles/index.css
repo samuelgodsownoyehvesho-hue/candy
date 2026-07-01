@@ -1,0 +1,92 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * {
+    @apply border-void-line dark:border-void-line;
+  }
+
+  html {
+    @apply scroll-smooth;
+  }
+
+  body {
+    @apply bg-void text-ink font-body antialiased transition-colors duration-300;
+  }
+
+  body.theme-light {
+    @apply bg-paper text-inkLight;
+  }
+
+  h1, h2, h3, h4 {
+    @apply font-display tracking-tight;
+  }
+
+  ::selection {
+    @apply bg-amber/30 text-ink;
+  }
+
+  /* Visible keyboard focus everywhere — accessibility requirement */
+  :focus-visible {
+    outline: 2px solid #3fe8c9;
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: #262b33;
+    border-radius: 999px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: #3a414c;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.001ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.001ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}
+
+@layer components {
+  .glass-panel {
+    @apply bg-void-panel/70 backdrop-blur-md border border-white/[0.06] shadow-glass;
+  }
+
+  .theme-light .glass-panel {
+    @apply bg-white/70 border-black/[0.06] shadow-none;
+  }
+
+  .glass-raised {
+    @apply bg-void-raised/80 backdrop-blur-sm border border-white/[0.08];
+  }
+
+  .theme-light .glass-raised {
+    @apply bg-paper-raised/90 border-black/[0.06];
+  }
+
+  .text-gradient-signal {
+    @apply bg-clip-text text-transparent bg-gradient-to-r from-amber via-amber-soft to-teal;
+  }
+
+  .btn-focus-ring {
+    @apply focus-visible:outline focus-visible:outline-2 focus-visible:outline-teal focus-visible:outline-offset-2;
+  }
+
+  .readout {
+    @apply font-mono text-xs tracking-wider tabular-nums;
+  }
+}
