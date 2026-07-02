@@ -10,6 +10,7 @@ import {
 } from 'react';
 import { nanoid } from 'nanoid';
 import { loadJSON, saveJSON } from '@/lib/storage';
+import { deleteAudioBlob } from '@/lib/audioDb';
 import {
   GRADIENT_SEEDS,
   type Project,
@@ -194,6 +195,7 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
 
   const deleteProject = useCallback((id: string) => {
     setProjects((prev) => prev.filter((p) => p.id !== id));
+    void deleteAudioBlob(id);
   }, []);
 
   const archiveProject = useCallback(

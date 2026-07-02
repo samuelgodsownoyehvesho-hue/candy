@@ -1,9 +1,11 @@
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { AppShell } from '@/components/layout/AppShell';
 import { Button } from '@/components/ui/Button';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { useProjects } from '@/context/ProjectContext';
+import { saveAudioBlob, getAudioBlob } from '@/lib/audioDb';
+import { AudioEnginePanel } from '@/components/audio/AudioEnginePanel';
 import {
   IconWaveform,
   IconUpload,
@@ -47,7 +49,47 @@ export function ProjectWorkspace() {
   const [titleDraft, setTitleDraft] = useState(project?.title ?? '');
   const [editingTitle, setEditingTitle] = useState(false);
   const [audioError, setAudioError] = useState<string | null>(null);
+  const [audioObjectUrl, setAudioObjectUrl] = useState<string | null>(null);
+  const [loadingStoredAudio, setLoadingStoredAudio] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const objectUrlRef = useRef<string | null>(null);
+
+  // On mount (or when a different project's audio metadata says a file was
+  // uploaded previously), pull the blob back out of IndexedDB and create a
+  // fresh object URL for playback — object URLs don't survive a reload.
+  useEffect(() => {
+    let cancelled = false;
+    if (!id || !project?.audio.fileName) {
+      return;
+    }
+    setLoadingStoredAudio(true);
+    getAudioBlob(id).then((stored) => {
+      if (cancelled) return;
+      setLoadingStoredAudio(false);
+      if (stored) {
+        const url = URL.createObjectURL(stored.blob);
+        objectUrlRef.current = url;
+        setAudioObjectUrl(url);
+      } else {
+        setAudioError(
+          'The audio file for this project could not be found in local storage. Please re-upload it.',
+        );
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+    // Only re-run when switching to a different project, not on every
+    // metadata tweak (renames, status changes, etc.)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id]);
+
+  // Revoke the object URL on unmount / replacement to avoid leaking memory.
+  useEffect(() => {
+    return () => {
+      if (objectUrlRef.current) URL.revokeObjectURL(objectUrlRef.current);
+    };
+  }, []);
 
   if (!project) {
     return (
@@ -66,24 +108,36 @@ export function ProjectWorkspace() {
       setAudioError(`Unsupported format ".${ext}". Use one of: ${SUPPORTED_AUDIO_EXT.join(', ').toUpperCase()}.`);
       return;
     }
+    if (!id) return;
     setAudioError(null);
-    const url = URL.createObjectURL(file);
+
+    const metaUrl = URL.createObjectURL(file);
     const audioEl = new Audio();
     audioEl.preload = 'metadata';
-    audioEl.src = url;
-    audioEl.onloadedmetadata = () => {
-      if (id) {
-        updateProjectAudio(id, {
-          fileName: file.name,
-          format: ext as SupportedExt,
-          durationSeconds: Number.isFinite(audioEl.duration) ? audioEl.duration : null,
-        });
+    audioEl.src = metaUrl;
+    audioEl.onloadedmetadata = async () => {
+      updateProjectAudio(id, {
+        fileName: file.name,
+        format: ext as SupportedExt,
+        durationSeconds: Number.isFinite(audioEl.duration) ? audioEl.duration : null,
+      });
+      URL.revokeObjectURL(metaUrl);
+
+      const saved = await saveAudioBlob(id, file, file.name);
+      if (!saved) {
+        setAudioError(
+          'Playback works for this session, but the file could not be saved locally — it will need to be re-uploaded after a reload.',
+        );
       }
-      URL.revokeObjectURL(url);
+
+      if (objectUrlRef.current) URL.revokeObjectURL(objectUrlRef.current);
+      const playbackUrl = URL.createObjectURL(file);
+      objectUrlRef.current = playbackUrl;
+      setAudioObjectUrl(playbackUrl);
     };
     audioEl.onerror = () => {
       setAudioError('Could not read that audio file. It may be corrupted.');
-      URL.revokeObjectURL(url);
+      URL.revokeObjectURL(metaUrl);
     };
   }
 
@@ -186,23 +240,33 @@ export function ProjectWorkspace() {
             <IconWaveform size={18} className="text-teal" /> Audio source
           </h3>
           <p className="text-sm text-ink-muted mb-4">
-            Supports MP3, WAV, FLAC, OGG, AAC, M4A. Waveform display, AI BPM/mood/genre
-            detection, and the full lyric sync editor arrive in the next build phase —
-            this step captures your source track and its duration now.
+            Supports MP3, WAV, FLAC, OGG, AAC, M4A. AI BPM/mood/genre detection and
+            the full lyric sync editor arrive in the next build phase — for now, play
+            back your track with a live waveform, frequency analyzer, and spectrogram.
           </p>
 
           {project.audio.fileName ? (
-            <div className="flex items-center justify-between glass-raised rounded-xl p-4">
-              <div>
-                <p className="text-sm font-medium text-ink">{project.audio.fileName}</p>
-                <p className="text-xs text-ink-dim readout mt-1">
-                  {project.audio.format?.toUpperCase()}
-                  {project.audio.durationSeconds ? ` · ${formatDuration(project.audio.durationSeconds)}` : ''}
-                </p>
+            <div className="space-y-4">
+              <div className="flex items-center justify-between glass-raised rounded-xl p-4">
+                <div>
+                  <p className="text-sm font-medium text-ink">{project.audio.fileName}</p>
+                  <p className="text-xs text-ink-dim readout mt-1">
+                    {project.audio.format?.toUpperCase()}
+                    {project.audio.durationSeconds ? ` · ${formatDuration(project.audio.durationSeconds)}` : ''}
+                  </p>
+                </div>
+                <Button variant="ghost" size="sm" onClick={() => fileInputRef.current?.click()}>
+                  Replace
+                </Button>
               </div>
-              <Button variant="ghost" size="sm" onClick={() => fileInputRef.current?.click()}>
-                Replace
-              </Button>
+
+              {loadingStoredAudio ? (
+                <div className="glass-raised rounded-xl p-8 flex items-center justify-center text-ink-dim text-xs readout">
+                  LOADING SAVED AUDIO
+                </div>
+              ) : audioObjectUrl ? (
+                <AudioEnginePanel key={audioObjectUrl} audioUrl={audioObjectUrl} />
+              ) : null}
             </div>
           ) : (
             <button

@@ -24,7 +24,7 @@ const FAQS = [
 
 const ROADMAP = [
   { label: 'Core studio shell, project management, theming', done: true },
-  { label: 'Audio engine — waveform, spectrogram, frequency analysis', done: false },
+  { label: 'Audio engine — waveform, spectrogram, frequency analyzer', done: true },
   { label: 'AI lyric sync (Grok) — word & line level, with manual override', done: false },
   { label: 'Timeline & multi-track editor', done: false },
   { label: 'Audio visualizers (30 types) + text effects + templates', done: false },

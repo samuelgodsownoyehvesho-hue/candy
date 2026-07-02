@@ -293,3 +293,67 @@ export function IconKeyboard(props: IconProps) {
     </svg>
   );
 }
+
+export function IconPause(props: IconProps) {
+  return (
+    <svg {...base(props)} fill="currentColor" stroke="none">
+      <rect x="6" y="5" width="4" height="14" rx="1" />
+      <rect x="14" y="5" width="4" height="14" rx="1" />
+    </svg>
+  );
+}
+
+export function IconVolume(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      <path d="M4 9v6h4l5 5V4L8 9H4Z" />
+      <path d="M16.5 8.5a5 5 0 0 1 0 7M19 6a8.5 8.5 0 0 1 0 12" />
+    </svg>
+  );
+}
+
+export function IconVolumeMute(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      <path d="M4 9v6h4l5 5V4L8 9H4Z" />
+      <path d="m16 9 5 6M21 9l-5 6" />
+    </svg>
+  );
+}
+
+export function IconRewind(props: IconProps) {
+  return (
+    <svg {...base(props)} fill="currentColor" stroke="none">
+      <path d="M11 12 20 6v12l-9-6Z" />
+      <path d="M2 12 11 6v12L2 12Z" />
+    </svg>
+  );
+}
+
+export function IconFastForward(props: IconProps) {
+  return (
+    <svg {...base(props)} fill="currentColor" stroke="none">
+      <path d="M13 12 4 6v12l9-6Z" />
+      <path d="M22 12 13 6v12l9-6Z" />
+    </svg>
+  );
+}
+
+export function IconActivity(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      <path d="M2 12h4l2-7 4 14 3-10 2 3h5" />
+    </svg>
+  );
+}
+
+export function IconSpectrum(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      <rect x="3" y="12" width="3" height="8" rx="1" />
+      <rect x="8" y="7" width="3" height="13" rx="1" />
+      <rect x="13" y="3" width="3" height="17" rx="1" />
+      <rect x="18" y="9" width="3" height="11" rx="1" />
+    </svg>
+  );
+}
