@@ -25,9 +25,10 @@ const FAQS = [
 const ROADMAP = [
   { label: 'Core studio shell, project management, theming', done: true },
   { label: 'Audio engine — waveform, spectrogram, frequency analyzer', done: true },
+  { label: 'Audio visualizers — 4 of 30 shipped (Waveform, Spectrum Bars, Circular Spectrum, Particle), full control set', done: true },
   { label: 'AI lyric sync (Grok) — word & line level, with manual override', done: false },
   { label: 'Timeline & multi-track editor', done: false },
-  { label: 'Audio visualizers (30 types) + text effects + templates', done: false },
+  { label: 'Remaining 26 visualizers + 40 lyric templates + text effects', done: false },
   { label: 'Export center — MP4/MOV/WebM/GIF up to 4K/60fps', done: false },
 ];
 

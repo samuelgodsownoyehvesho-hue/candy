@@ -9,6 +9,8 @@
  * stable, already-agreed shape rather than bolting types on after the fact.
  */
 
+import type { VisualizerConfig, VisualizerType } from './visualizer';
+
 export type ProjectStatus = 'draft' | 'in-progress' | 'ready' | 'archived';
 
 export interface ProjectAudioMeta {
@@ -18,6 +20,11 @@ export interface ProjectAudioMeta {
   bpm: number | null;
   mood: string | null;
   genre: string | null;
+}
+
+export interface ProjectVisualizerSettings {
+  type: VisualizerType;
+  config: VisualizerConfig;
 }
 
 export interface ProjectThumbnail {
@@ -39,6 +46,7 @@ export interface Project {
   durationLabel: string | null;
   /** lightweight progress indicator surfaced on dashboard/cards, 0-100 */
   completion: number;
+  visualizer: ProjectVisualizerSettings | null;
   /** simple linear version history of title/status snapshots */
   versions: ProjectVersionEntry[];
 }

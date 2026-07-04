@@ -5,7 +5,9 @@ import { Button } from '@/components/ui/Button';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { useProjects } from '@/context/ProjectContext';
 import { saveAudioBlob, getAudioBlob } from '@/lib/audioDb';
+import { useAudioEngine } from '@/hooks/useAudioEngine';
 import { AudioEnginePanel } from '@/components/audio/AudioEnginePanel';
+import { VisualizerPanel } from '@/components/visualizer/VisualizerPanel';
 import {
   IconWaveform,
   IconUpload,
@@ -16,6 +18,7 @@ import {
   IconDownload,
   IconClock,
   IconCheck,
+  IconSparkles,
 } from '@/components/icons/Icons';
 import { PROJECT_STATUS_LABEL, type ProjectStatus } from '@/types/project';
 import clsx from 'clsx';
@@ -91,6 +94,12 @@ export function ProjectWorkspace() {
     };
   }, []);
 
+  // A single shared playback engine, owned here, feeds both the Audio
+  // Source panel (waveform/controls) and the Visualizer panel (live
+  // frequency data) — one WaveSurfer instance and one Web Audio graph,
+  // not two competing ones.
+  const engine = useAudioEngine(audioObjectUrl);
+
   if (!project) {
     return (
       <AppShell title="Project not found">
@@ -143,7 +152,7 @@ export function ProjectWorkspace() {
 
   return (
     <AppShell title="Project">
-      <div className="max-w-4xl mx-auto">
+      <div className="max-w-5xl mx-auto">
         {/* Header */}
         <div className="glass-panel rounded-2xl p-6 mb-6">
           <div className="flex flex-wrap items-start justify-between gap-4">
@@ -265,7 +274,7 @@ export function ProjectWorkspace() {
                   LOADING SAVED AUDIO
                 </div>
               ) : audioObjectUrl ? (
-                <AudioEnginePanel key={audioObjectUrl} audioUrl={audioObjectUrl} />
+                <AudioEnginePanel engine={engine} />
               ) : null}
             </div>
           ) : (
@@ -291,6 +300,26 @@ export function ProjectWorkspace() {
           />
           {audioError && <p className="text-xs text-clip-soft mt-3">{audioError}</p>}
         </div>
+
+        {/* Visualizer panel */}
+        {project.audio.fileName && (
+          <div className="glass-panel rounded-2xl p-6 mb-6">
+            <h3 className="font-display font-semibold text-ink mb-1 flex items-center gap-2">
+              <IconSparkles size={18} className="text-amber" /> Visualizer
+            </h3>
+            <p className="text-sm text-ink-muted mb-4">
+              Pick a visualizer and shape it with the controls on the right — every
+              adjustment is saved to this project automatically. Preview animates live
+              while your track plays, and gently idles otherwise.
+            </p>
+            <VisualizerPanel
+              projectId={project.id}
+              savedSettings={project.visualizer}
+              analyserNode={engine.analyserNode}
+              isPlaying={engine.isPlaying}
+            />
+          </div>
+        )}
 
         {/* Version history */}
         <div className="glass-panel rounded-2xl p-6">

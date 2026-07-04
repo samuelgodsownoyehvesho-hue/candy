@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import WaveSurfer from 'wavesurfer.js';
 
-interface UseAudioEngineResult {
+export interface UseAudioEngineResult {
   containerRef: React.RefObject<HTMLDivElement>;
   isReady: boolean;
   isPlaying: boolean;

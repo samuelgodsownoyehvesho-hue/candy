@@ -13,10 +13,38 @@ is how you end up with code that *looks* complete but silently doesn't compile
 or doesn't actually do what it claims. Building and verifying in real slices
 avoids that.
 
-## What's in this slice (Slice 2 — Audio Engine)
+## What's in this slice (Slice 3 — First Audio Visualizers)
 
-Building on Slice 1's project shell, this slice adds a real, working audio
-engine to the project workspace:
+Adds a real visualizer system to the project workspace, appearing once a
+track is uploaded:
+
+- **4 working visualizer types**: Waveform (oscilloscope-style line),
+  Spectrum Bars, Circular Spectrum (rotating ring of bars), and Particle
+  (a field of particles that pulses outward with the beat and leaves trails)
+- **The full 17-property control set** from the spec, wired for real on
+  every type: primary/secondary color with gradient toggle, glow, blur,
+  thickness, sensitivity, radius, rotation, rotation speed, animation speed,
+  opacity, drop shadow (+ color), motion blur (trail smear), bloom,
+  reflection, refraction, particle count, and trail length
+- **Shared rendering architecture**: a single `VisualizerCanvas` component
+  owns the rAF loop and a generic post-processing pipeline (trail decay,
+  bloom, reflection, refraction banding, blur, drop shadow) that every
+  visualizer type plugs into — this is the exact pattern the remaining 26
+  visualizer types will follow, so adding each one going forward is a new
+  entry in `VISUALIZER_LIBRARY` plus one draw function in
+  `lib/visualizerEngine.ts`, not a new rendering pipeline
+- **Live audio-reactive preview**: shares the same `AnalyserNode` the Audio
+  Engine panel already created (one Web Audio graph, not a second
+  competing one) — the visualizer genuinely reacts to your track as it
+  plays, and idles with gentle synthetic motion when paused
+- **Persisted per project**: visualizer type and every control value save
+  automatically (debounced) to the project, same as audio metadata
+
+**Verified, not assumed:** `tsc -b` clean, `vite build` clean, 26/26 Vitest
+tests passing (color interpolation math, visualizer default configs), ESLint
+clean.
+
+## What's in Slice 2 (Audio Engine)
 
 - **Waveform playback** via WaveSurfer.js — click-to-seek, play/pause,
   rewind/forward 5s, volume with mute toggle, live time readout
@@ -25,18 +53,9 @@ engine to the project workspace:
   detail isn't crushed into the first two bars
 - **Real FFT spectrogram** — a from-scratch radix-2 Cooley-Tukey FFT
   (`src/lib/fft.ts`, unit-tested against a known sine-wave peak) computed in a
-  **Web Worker** (`src/workers/spectrogram.worker.ts`) so a multi-minute track
-  doesn't block the UI thread; rendered as a duotone amber/teal image matching
-  the design system
-- **IndexedDB persistence** for the uploaded audio blob itself (binary, so it
-  doesn't belong in the JSON `localStorage` layer project metadata already
-  uses) — reload the page and your track is still there, no re-upload needed
-- Format validation unchanged from Slice 1 (MP3/WAV/FLAC/OGG/AAC/M4A)
-
-**Verified, not assumed:** `tsc -b` clean, `vite build` clean (worker
-correctly code-splits into its own chunk), 16/16 Vitest tests passing
-(including an FFT correctness test that feeds in a pure sine wave and asserts
-the energy peak lands in the expected bin), ESLint clean.
+  Web Worker (`src/workers/spectrogram.worker.ts`) so a multi-minute track
+  doesn't block the UI thread
+- **IndexedDB persistence** for the uploaded audio blob itself
 
 ## What's in Slice 1 (Core Studio Shell)
 
@@ -45,29 +64,27 @@ the energy peak lands in the expected bin), ESLint clean.
 - Routing: Splash → Landing → Dashboard → My Projects → Project workspace,
   plus Settings, Help, About
 - Full project CRUD: create, rename, duplicate, delete, archive/restore,
-  import (.json), export (.json, single project or all projects),
-  auto-save (debounced, to `localStorage`), linear version history
-- Audio source upload with format validation and duration detection
+  import (.json), export (.json), auto-save, linear version history
 - Keyboard shortcut (`Ctrl/Cmd+N` → new project), visible focus rings,
   `prefers-reduced-motion` respected throughout
 - Responsive: mobile drawer nav, tablet, desktop sidebar
 
-**Not yet built** (tracked transparently in the in-app Help → Build roadmap,
-and in the table below): Grok AI integration (sync, BPM/mood/genre detection,
-palette/font/animation recommendations), the 30 audio visualizers, the 40
-lyric templates, the timeline/multi-track editor, text/camera effects,
-transitions, the Template Store, Asset Library, and the Export Center
-(FFmpeg-WASM). These are the next slices, built in this order:
+**Not yet built** (tracked transparently in the in-app Help → Build
+roadmap, and in the table below): Grok AI integration (sync, BPM/mood/genre
+detection, palette/font/animation recommendations), the remaining 26 audio
+visualizers, the 40 lyric templates, the timeline/multi-track editor,
+text/camera effects, transitions, the Template Store, Asset Library, and the
+Export Center (FFmpeg-WASM). These are the next slices, built in this order:
 
 | Slice | Scope |
 |---|---|
 | 1 ✅ | Core shell, routing, theme, project CRUD |
 | 2 ✅ | Audio engine — waveform (WaveSurfer.js), spectrogram (FFT + Web Worker), frequency analyzer, IndexedDB persistence |
-| 3 | First audio visualizers (Waveform, Spectrum Bars, Circular Spectrum, Particle) with the full control set (color, glow, sensitivity, etc.) — pattern for the remaining 26 |
+| 3 ✅ | First 4 audio visualizers (Waveform, Spectrum Bars, Circular Spectrum, Particle) with the full 17-property control set — shared rendering pattern for the remaining 26 |
 | 4 | Lyric Editor — Grok-assisted word/line sync **and** full manual override on the timeline, AI lyric cleanup/subtitle formatting |
 | 5 | Timeline/multi-track editor — trim, split, merge, keyframes, undo/redo, snap guides |
 | 6 | Export Center — FFmpeg-WASM, MP4/MOV/WebM/GIF, 720p–4K, 24/30/60fps, background export, retry/cancel, progress |
-| 7 | Template Store, Asset Library, remaining visualizers/templates, polish pass |
+| 7 | Template Store, Asset Library, remaining 26 visualizers/40 templates, polish pass |
 
 ## Design system
 
@@ -89,10 +106,13 @@ cadence/
 │  ├─ components/
 │  │  ├─ audio/                 # AudioEnginePanel, WaveformView, PlaybackControls,
 │  │  │                          # FrequencyAnalyzer, SpectrogramView
+│  │  ├─ visualizer/            # VisualizerPanel, VisualizerCanvas (rAF loop +
+│  │  │                          # post-processing pipeline), VisualizerTypePicker,
+│  │  │                          # VisualizerControlPanel
 │  │  ├─ icons/Icons.tsx        # shared SVG icon set (no emoji anywhere)
 │  │  ├─ layout/                # AppShell, Sidebar, Topbar (+ mobile drawer)
-│  │  └─ ui/                    # Button, Modal, Card-equivalents, ProjectCard,
-│  │                             # StatusBadge, AmbientMeter (signature motif)
+│  │  └─ ui/                    # Button, Modal, ProjectCard, StatusBadge,
+│  │                             # Slider, ColorField, ToggleField, AmbientMeter
 │  ├─ context/
 │  │  ├─ ThemeContext.tsx       # dark/light, persisted
 │  │  └─ ProjectContext.tsx     # full project CRUD + autosave + versioning
@@ -101,13 +121,17 @@ cadence/
 │  │  └─ useKeyboardShortcuts.ts
 │  ├─ lib/
 │  │  ├─ audioDb.ts             # IndexedDB wrapper for uploaded audio blobs
+│  │  ├─ color.ts                # hex/rgb/lerp color helpers
 │  │  ├─ fft.ts                 # radix-2 Cooley-Tukey FFT + Hann window
+│  │  ├─ visualizerEngine.ts    # per-type canvas draw functions + particle system
 │  │  └─ storage.ts             # defensive localStorage wrapper
 │  ├─ pages/                    # Splash, Landing, Dashboard, Projects,
 │  │                             # ProjectWorkspace, Settings, Help, About
 │  ├─ test/                     # Vitest unit tests + jsdom setup
-│  ├─ types/project.ts          # full Project data model (forward-typed for
-│  │                             # later slices: templates, timeline)
+│  ├─ types/
+│  │  ├─ project.ts             # full Project data model (forward-typed for
+│  │  │                          # later slices: templates, timeline)
+│  │  └─ visualizer.ts          # VisualizerType, VisualizerConfig, defaults
 │  ├─ workers/
 │  │  └─ spectrogram.worker.ts  # off-main-thread FFT spectrogram computation
 │  ├─ App.tsx                   # router

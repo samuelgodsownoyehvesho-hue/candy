@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import clsx from 'clsx';
-import { useAudioEngine } from '@/hooks/useAudioEngine';
+import type { UseAudioEngineResult } from '@/hooks/useAudioEngine';
 import { WaveformView } from '@/components/audio/WaveformView';
 import { PlaybackControls } from '@/components/audio/PlaybackControls';
 import { FrequencyAnalyzer } from '@/components/audio/FrequencyAnalyzer';
@@ -8,13 +8,12 @@ import { SpectrogramView } from '@/components/audio/SpectrogramView';
 import { IconActivity, IconSpectrum } from '@/components/icons/Icons';
 
 interface AudioEnginePanelProps {
-  audioUrl: string;
+  engine: UseAudioEngineResult;
 }
 
 type AnalysisTab = 'frequency' | 'spectrogram';
 
-export function AudioEnginePanel({ audioUrl }: AudioEnginePanelProps) {
-  const engine = useAudioEngine(audioUrl);
+export function AudioEnginePanel({ engine }: AudioEnginePanelProps) {
   const [tab, setTab] = useState<AnalysisTab>('frequency');
 
   return (

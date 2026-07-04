@@ -35,6 +35,7 @@ interface ProjectContextValue {
   importProject: (file: File) => Promise<Project | null>;
   getProject: (id: string) => Project | undefined;
   updateProjectAudio: (id: string, meta: Partial<Project['audio']>) => void;
+  updateProjectVisualizer: (id: string, settings: Project['visualizer']) => void;
 }
 
 const ProjectContext = createContext<ProjectContextValue | null>(null);
@@ -70,6 +71,7 @@ function makeProject(input: ProjectCreateInput): Project {
     templateId: input.templateId ?? null,
     durationLabel: null,
     completion: 0,
+    visualizer: null,
     versions: [
       {
         id: nanoid(8),
@@ -263,6 +265,7 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
         thumbnail: parsed.thumbnail ?? { kind: 'gradient', value: nextGradient() },
         durationLabel: parsed.durationLabel ?? null,
         completion: typeof parsed.completion === 'number' ? parsed.completion : 0,
+        visualizer: parsed.visualizer ?? null,
         versions: [
           {
             id: nanoid(8),
@@ -309,6 +312,22 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
     [touchAndUpdate],
   );
 
+  // Deliberately no version-history entry here: this fires on a debounce
+  // while the person is actively dragging sliders, so logging every tweak
+  // would flood the version history with noise. Audio/status changes above
+  // are discrete, meaningful events and still get logged.
+  const updateProjectVisualizer = useCallback(
+    (id: string, settings: Project['visualizer']) => {
+      touchAndUpdate(id, (p) => ({
+        ...p,
+        visualizer: settings,
+        status: p.status === 'draft' ? 'in-progress' : p.status,
+        completion: Math.max(p.completion, 35),
+      }));
+    },
+    [touchAndUpdate],
+  );
+
   const activeProjects = useMemo(
     () => projects.filter((p) => p.status !== 'archived'),
     [projects],
@@ -336,6 +355,7 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
       importProject,
       getProject,
       updateProjectAudio,
+      updateProjectVisualizer,
     }),
     [
       projects,
@@ -354,6 +374,7 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
       importProject,
       getProject,
       updateProjectAudio,
+      updateProjectVisualizer,
     ],
   );
 
