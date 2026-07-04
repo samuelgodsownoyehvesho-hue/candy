@@ -10,6 +10,7 @@
  */
 
 import type { VisualizerConfig, VisualizerType } from './visualizer';
+import type { LyricsDocument } from './lyrics';
 
 export type ProjectStatus = 'draft' | 'in-progress' | 'ready' | 'archived';
 
@@ -47,6 +48,7 @@ export interface Project {
   /** lightweight progress indicator surfaced on dashboard/cards, 0-100 */
   completion: number;
   visualizer: ProjectVisualizerSettings | null;
+  lyrics: LyricsDocument | null;
   /** simple linear version history of title/status snapshots */
   versions: ProjectVersionEntry[];
 }

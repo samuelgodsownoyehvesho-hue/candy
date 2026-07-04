@@ -36,6 +36,7 @@ interface ProjectContextValue {
   getProject: (id: string) => Project | undefined;
   updateProjectAudio: (id: string, meta: Partial<Project['audio']>) => void;
   updateProjectVisualizer: (id: string, settings: Project['visualizer']) => void;
+  updateProjectLyrics: (id: string, lyrics: Project['lyrics']) => void;
 }
 
 const ProjectContext = createContext<ProjectContextValue | null>(null);
@@ -72,6 +73,7 @@ function makeProject(input: ProjectCreateInput): Project {
     durationLabel: null,
     completion: 0,
     visualizer: null,
+    lyrics: null,
     versions: [
       {
         id: nanoid(8),
@@ -266,6 +268,7 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
         durationLabel: parsed.durationLabel ?? null,
         completion: typeof parsed.completion === 'number' ? parsed.completion : 0,
         visualizer: parsed.visualizer ?? null,
+        lyrics: parsed.lyrics ?? null,
         versions: [
           {
             id: nanoid(8),
@@ -328,6 +331,20 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
     [touchAndUpdate],
   );
 
+  // Same reasoning as updateProjectVisualizer: fires on a debounce while
+  // dragging timeline handles, so no version-history entry per call.
+  const updateProjectLyrics = useCallback(
+    (id: string, lyrics: Project['lyrics']) => {
+      touchAndUpdate(id, (p) => ({
+        ...p,
+        lyrics,
+        status: p.status === 'draft' ? 'in-progress' : p.status,
+        completion: Math.max(p.completion, lyrics?.syncStatus === 'word-synced' ? 60 : p.completion),
+      }));
+    },
+    [touchAndUpdate],
+  );
+
   const activeProjects = useMemo(
     () => projects.filter((p) => p.status !== 'archived'),
     [projects],
@@ -356,6 +373,7 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
       getProject,
       updateProjectAudio,
       updateProjectVisualizer,
+      updateProjectLyrics,
     }),
     [
       projects,
@@ -375,6 +393,7 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
       getProject,
       updateProjectAudio,
       updateProjectVisualizer,
+      updateProjectLyrics,
     ],
   );
 

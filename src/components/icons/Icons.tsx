@@ -357,3 +357,12 @@ export function IconSpectrum(props: IconProps) {
     </svg>
   );
 }
+
+export function IconSubtitles(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      <rect x="2" y="5" width="20" height="14" rx="2" />
+      <path d="M6 10h4M6 14h8M13 10h5" />
+    </svg>
+  );
+}

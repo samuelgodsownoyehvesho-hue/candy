@@ -13,7 +13,54 @@ is how you end up with code that *looks* complete but silently doesn't compile
 or doesn't actually do what it claims. Building and verifying in real slices
 avoids that.
 
-## What's in this slice (Slice 3 — First Audio Visualizers)
+## What's in this slice (Slice 4 — Lyric Editor)
+
+Adds a real lyric-sync system to the project workspace. One honest scoping
+note up front: **Grok is a text model, not an audio-listening one** — it
+can't literally hear your vocals to detect exact word timestamps the way a
+speech-to-text model would. So rather than oversell that, here's the actual
+(genuinely useful) architecture:
+
+- **Real signal analysis** (`src/lib/audioAnalysis.ts`) computes an RMS
+  energy envelope from your track's actual decoded audio and detects
+  sustained low-energy stretches (intros, instrumental breaks, outros) —
+  real DSP, unit-tested against synthetic signals with known gaps
+- **Grok proposes line-level pacing** via a Vercel serverless function
+  (`api/grok-sync.js`), informed by that silence-gap data, each line's
+  length, and the track's duration — so lines land at sensible times and
+  never overlap a detected instrumental gap
+- **Word-level timing is derived deterministically** (`buildWordsForLine`)
+  from each line's proposed range, weighted by word length — this is local
+  math, not an AI guess, and is exactly what a person is expected to
+  fine-tune by hand afterward
+- **A deterministic fallback** (`naiveProportionalTimings`) kicks in
+  automatically if Grok is unreachable — including when running plain
+  `vite dev` locally with no serverless runtime — so the feature works
+  end-to-end either way; the UI is explicit about which one produced the
+  current sync
+- **Full manual override**: drag any line's body to move it, drag its edges
+  to resize it, or select a line to drag its individual words — pointer-based
+  timeline editing, plus arrow-key nudging for keyboard accessibility
+- **A live karaoke-style preview** highlighting the current word/line as your
+  track plays
+- **The Grok API key is server-side only** (`GROK_API_KEY`, not
+  `VITE_GROK_API_KEY`) — it's read by the Vercel serverless function via
+  `process.env` and never ships in the client bundle. This corrects a gap
+  flagged (but not yet fixed) in earlier slices.
+
+**Also fixed in this slice:** a 404-on-refresh bug on Vercel deployments —
+Slice 1 shipped `netlify.toml`'s SPA redirect rule but never added the
+Vercel equivalent (`vercel.json`), which anyone deploying to Vercel instead
+of Netlify would have hit on any deep link or page refresh.
+
+**Verified, not assumed:** `tsc --noEmit` clean, `vite build` clean, 43/43
+Vitest tests passing (including a test that caught and fixed a real bug in
+the fallback timing algorithm, where a line's reported time range could
+visually straddle a silence gap even though no time was actually spent
+inside it), ESLint clean across both the TS/TSX app code and the new
+JS serverless function.
+
+## What's in Slice 3 (First Audio Visualizers)
 
 Adds a real visualizer system to the project workspace, appearing once a
 track is uploaded:
@@ -70,18 +117,17 @@ clean.
 - Responsive: mobile drawer nav, tablet, desktop sidebar
 
 **Not yet built** (tracked transparently in the in-app Help → Build
-roadmap, and in the table below): Grok AI integration (sync, BPM/mood/genre
-detection, palette/font/animation recommendations), the remaining 26 audio
-visualizers, the 40 lyric templates, the timeline/multi-track editor,
-text/camera effects, transitions, the Template Store, Asset Library, and the
-Export Center (FFmpeg-WASM). These are the next slices, built in this order:
+roadmap, and in the table below): the timeline/multi-track editor, the
+remaining 26 audio visualizers, the 40 lyric templates, text/camera effects,
+transitions, the Template Store, Asset Library, and the Export Center
+(FFmpeg-WASM). These are the next slices, built in this order:
 
 | Slice | Scope |
 |---|---|
 | 1 ✅ | Core shell, routing, theme, project CRUD |
 | 2 ✅ | Audio engine — waveform (WaveSurfer.js), spectrogram (FFT + Web Worker), frequency analyzer, IndexedDB persistence |
 | 3 ✅ | First 4 audio visualizers (Waveform, Spectrum Bars, Circular Spectrum, Particle) with the full 17-property control set — shared rendering pattern for the remaining 26 |
-| 4 | Lyric Editor — Grok-assisted word/line sync **and** full manual override on the timeline, AI lyric cleanup/subtitle formatting |
+| 4 ✅ | Lyric Editor — Grok-assisted line sync (via a secure serverless proxy) with full manual drag-to-edit override, deterministic fallback when AI is unavailable |
 | 5 | Timeline/multi-track editor — trim, split, merge, keyframes, undo/redo, snap guides |
 | 6 | Export Center — FFmpeg-WASM, MP4/MOV/WebM/GIF, 720p–4K, 24/30/60fps, background export, retry/cancel, progress |
 | 7 | Template Store, Asset Library, remaining 26 visualizers/40 templates, polish pass |
@@ -100,12 +146,17 @@ like a real signal chain, not decoration.
 
 ```
 cadence/
+├─ api/
+│  └─ grok-sync.js             # Vercel serverless function — proxies Grok,
+│                                # keeps GROK_API_KEY server-side only
 ├─ public/
 │  └─ favicon.svg
 ├─ src/
 │  ├─ components/
 │  │  ├─ audio/                 # AudioEnginePanel, WaveformView, PlaybackControls,
 │  │  │                          # FrequencyAnalyzer, SpectrogramView
+│  │  ├─ lyrics/                # LyricsPanel, LyricInputPanel,
+│  │  │                          # LyricTimelineEditor (drag-to-edit), LyricPreview
 │  │  ├─ visualizer/            # VisualizerPanel, VisualizerCanvas (rAF loop +
 │  │  │                          # post-processing pipeline), VisualizerTypePicker,
 │  │  │                          # VisualizerControlPanel
@@ -120,9 +171,12 @@ cadence/
 │  │  ├─ useAudioEngine.ts      # WaveSurfer + Web Audio analyser + decode
 │  │  └─ useKeyboardShortcuts.ts
 │  ├─ lib/
+│  │  ├─ audioAnalysis.ts       # RMS energy envelope + silence-gap detection
 │  │  ├─ audioDb.ts             # IndexedDB wrapper for uploaded audio blobs
 │  │  ├─ color.ts                # hex/rgb/lerp color helpers
 │  │  ├─ fft.ts                 # radix-2 Cooley-Tukey FFT + Hann window
+│  │  ├─ grokClient.ts          # client-side caller for /api/grok-sync
+│  │  ├─ lyrics.ts              # parsing, word-timing distribution, sync orchestration
 │  │  ├─ visualizerEngine.ts    # per-type canvas draw functions + particle system
 │  │  └─ storage.ts             # defensive localStorage wrapper
 │  ├─ pages/                    # Splash, Landing, Dashboard, Projects,
@@ -131,6 +185,7 @@ cadence/
 │  ├─ types/
 │  │  ├─ project.ts             # full Project data model (forward-typed for
 │  │  │                          # later slices: templates, timeline)
+│  │  ├─ lyrics.ts              # LyricLine, LyricWord, LyricsDocument
 │  │  └─ visualizer.ts          # VisualizerType, VisualizerConfig, defaults
 │  ├─ workers/
 │  │  └─ spectrogram.worker.ts  # off-main-thread FFT spectrogram computation
@@ -142,8 +197,9 @@ cadence/
 ├─ vite.config.ts               # includes Vitest config + COOP/COEP headers
 │                                 # (required later for FFmpeg-WASM)
 ├─ tailwind.config.js           # full color/type/animation token system
-├─ tsconfig.json / tsconfig.node.json
-├─ netlify.toml
+├─ tsconfig.json
+├─ netlify.toml                 # SPA redirect + COOP/COEP headers, for Netlify
+├─ vercel.json                  # SPA rewrite (excluding /api/*), for Vercel
 ├─ .env.example
 ├─ .eslintrc.cjs / .prettierrc
 └─ .gitignore
@@ -184,54 +240,76 @@ npm run lint        # ESLint, zero warnings tolerated in CI
 npm run format       # Prettier write
 ```
 
-## Netlify deployment
+## Deployment (Vercel or Netlify)
 
-This repo is Netlify-ready out of the box via `netlify.toml`:
+This repo deploys cleanly to either. **Vercel is the primary target** as of
+this slice, since `api/grok-sync.js` uses Vercel's zero-config serverless
+functions convention (any file under `/api` automatically becomes an
+endpoint — no extra setup needed).
 
-1. Push this repo to GitHub (or GitLab/Bitbucket).
-2. In Netlify: **Add new site → Import an existing project**, pick the repo.
-3. Build command and publish directory are already set (`npm run build`,
-   `dist`) via `netlify.toml` — Netlify will detect them automatically.
-4. Add your environment variables (see below) under **Site settings →
-   Environment variables** before the first deploy that uses AI features.
-5. Deploy. The SPA redirect rule (`/* → /index.html`) is already configured so
-   client-side routing (e.g. `/projects/abc123`) works on refresh and direct link.
+### Vercel
 
-The `netlify.toml` also sets `Cross-Origin-Opener-Policy` /
-`Cross-Origin-Embedder-Policy` headers site-wide — these are required for
-FFmpeg-WASM's `SharedArrayBuffer` usage in the upcoming Export Center slice, so
-they're configured now rather than as a surprise later.
+1. Push this repo to GitHub.
+2. In Vercel: **Add New → Project**, import the repo. Vercel auto-detects
+   the Vite build (`npm run build`, output `dist`).
+3. Add `GROK_API_KEY` (and optionally `GROK_API_BASE_URL` / `GROK_MODEL`) in
+   **Project Settings → Environment Variables** before deploying — the lyric
+   sync feature falls back to a local deterministic algorithm without it, so
+   the app won't be broken if you skip this, but AI sync won't work.
+4. Deploy. `vercel.json` handles the SPA rewrite (so `/projects/abc123`
+   works on refresh instead of 404ing) and explicitly excludes `/api/*` from
+   that rewrite so the serverless function keeps working.
+
+### Netlify
+
+`netlify.toml` is also configured (build command, publish dir, SPA
+redirect, and the COOP/COEP headers FFmpeg-WASM will need in a later slice).
+**Note:** `api/grok-sync.js` is written using Vercel's serverless function
+convention — deploying to Netlify instead would need that endpoint
+reimplemented as a Netlify Function (different file location and handler
+signature). Until that's done, lyric sync running on Netlify will always use
+the local deterministic fallback, not Grok.
 
 ## Grok API setup
 
-Slice 1 ships the env scaffolding for Grok but does not yet call it (that
-lands in Slice 4, Lyric Editor). To prepare:
+The Grok integration is real and working as of Slice 4, proxied through
+`api/grok-sync.js` so the API key never reaches the browser:
 
 1. Get an API key from [console.x.ai](https://console.x.ai).
-2. Set `VITE_GROK_API_KEY` in `.env` (local) or in Netlify's environment
-   variables (production).
-3. `VITE_GROK_API_BASE_URL` and `VITE_GROK_MODEL` have sensible defaults in
+2. Set it as `GROK_API_KEY` (no `VITE_` prefix — see why below) in Vercel's
+   environment variables, or in a local `.env` file if using `vercel dev`.
+3. `GROK_API_BASE_URL` and `GROK_MODEL` have sensible defaults in
    `.env.example` — override only if xAI changes their endpoint or you want a
    different model.
 
-**Important:** any `VITE_*` variable is bundled into the client-side JS and is
-publicly visible in the browser. For a production app handling real API spend,
-the Grok calls in Slice 4 should be proxied through a small serverless
-function (e.g. a Netlify Function) rather than calling the API directly from
-the browser with an exposed key — flagging this now so it's a deliberate
-choice when we build that slice, not an afterthought.
+**Why no `VITE_` prefix:** any `VITE_*` variable gets bundled into the
+client-side JS and is publicly visible in the browser — fine for things like
+a base URL, not fine for a billable API key. `GROK_API_KEY` is read
+server-side only, inside `api/grok-sync.js`, via `process.env`. An earlier
+slice's README flagged this as a "should fix later" — this is that fix.
+
+**Local development:** plain `npm run dev` (via Vite) does not run
+serverless functions, so `/api/grok-sync` won't exist locally that way —
+lyric sync will automatically use the deterministic fallback algorithm
+instead, and the UI clearly indicates which one produced the current sync.
+To test the real Grok path locally, use the Vercel CLI's `vercel dev`
+instead, which emulates the serverless environment.
 
 ## Troubleshooting
 
 - **`npm install` fails on a fresh clone** — confirm Node 20+ (`node -v`).
   Older Node versions aren't tested against this dependency set.
 - **Blank page after `npm run build` + `npm run preview`** — check the browser
-  console; this almost always means an env var referenced with
-  `import.meta.env.VITE_*` is missing. Confirm `.env` exists and matches
-  `.env.example`'s keys.
-- **Netlify deploy succeeds but routes 404 on refresh** — confirm the
-  `[[redirects]]` block in `netlify.toml` wasn't stripped; Netlify needs it to
-  serve `index.html` for client-side routes.
+  console for a startup error.
+- **404 on refresh / deep link (Vercel)** — confirm `vercel.json`'s
+  `rewrites` block wasn't stripped.
+- **404 on refresh / deep link (Netlify)** — confirm the
+  `[[redirects]]` block in `netlify.toml` wasn't stripped.
+- **Lyric sync always says "local timing algorithm" even with a Grok key
+  set** — confirm `GROK_API_KEY` (not `VITE_GROK_API_KEY`) is set in your
+  deployment's environment variables, and that you're deploying to Vercel
+  (or running `vercel dev` locally) rather than plain Netlify/`vite dev`,
+  neither of which currently execute `api/grok-sync.js`.
 - **Theme flashes the wrong mode on load** — this is a known tradeoff of
   client-side theme detection without SSR; it self-corrects within one paint
   and doesn't affect functionality.

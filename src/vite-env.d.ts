@@ -1,11 +1,6 @@
 /// <reference types="vite/client" />
 
-interface ImportMetaEnv {
-  readonly VITE_GROK_API_KEY: string;
-  readonly VITE_GROK_API_BASE_URL: string;
-  readonly VITE_GROK_MODEL: string;
-}
-
-interface ImportMeta {
-  readonly env: ImportMetaEnv;
-}
+// Grok API credentials are deliberately NOT exposed here as VITE_-prefixed
+// client env vars — see .env.example and api/grok-sync.js. The Vercel
+// serverless function reads GROK_API_KEY server-side via process.env;
+// nothing Grok-related is bundled into client-side code.

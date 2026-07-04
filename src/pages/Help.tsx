@@ -13,8 +13,8 @@ const FAQS = [
     a: 'Locally in this browser, via localStorage. Nothing is uploaded to a server unless you explicitly export or use an AI feature that calls Grok. Use Settings → Export to back up your work.',
   },
   {
-    q: 'Will lyric sync be automatic or manual?',
-    a: 'Both. Cadence uses Grok to propose word and line-level sync automatically, and you can fine-tune or fully override any of it by hand on the timeline.',
+    q: 'How does AI lyric sync actually work?',
+    a: 'Grok is a text model, not an audio-listening one — it can\'t literally hear your vocals. Cadence analyzes your track\'s real energy envelope to detect instrumental/silent gaps, then Grok proposes line-level timing informed by that plus line length and track duration. Word-level timing within each line is calculated automatically. You can drag any line or word on the timeline to correct it by hand at any time — the AI proposal is a starting point, not a final answer.',
   },
   {
     q: 'What happens if I clear my browser data?',
@@ -26,7 +26,7 @@ const ROADMAP = [
   { label: 'Core studio shell, project management, theming', done: true },
   { label: 'Audio engine — waveform, spectrogram, frequency analyzer', done: true },
   { label: 'Audio visualizers — 4 of 30 shipped (Waveform, Spectrum Bars, Circular Spectrum, Particle), full control set', done: true },
-  { label: 'AI lyric sync (Grok) — word & line level, with manual override', done: false },
+  { label: 'Lyric editor — Grok-assisted sync with full manual override', done: true },
   { label: 'Timeline & multi-track editor', done: false },
   { label: 'Remaining 26 visualizers + 40 lyric templates + text effects', done: false },
   { label: 'Export center — MP4/MOV/WebM/GIF up to 4K/60fps', done: false },

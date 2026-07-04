@@ -8,6 +8,7 @@ import { saveAudioBlob, getAudioBlob } from '@/lib/audioDb';
 import { useAudioEngine } from '@/hooks/useAudioEngine';
 import { AudioEnginePanel } from '@/components/audio/AudioEnginePanel';
 import { VisualizerPanel } from '@/components/visualizer/VisualizerPanel';
+import { LyricsPanel } from '@/components/lyrics/LyricsPanel';
 import {
   IconWaveform,
   IconUpload,
@@ -19,6 +20,7 @@ import {
   IconClock,
   IconCheck,
   IconSparkles,
+  IconSubtitles,
 } from '@/components/icons/Icons';
 import { PROJECT_STATUS_LABEL, type ProjectStatus } from '@/types/project';
 import clsx from 'clsx';
@@ -317,6 +319,29 @@ export function ProjectWorkspace() {
               savedSettings={project.visualizer}
               analyserNode={engine.analyserNode}
               isPlaying={engine.isPlaying}
+            />
+          </div>
+        )}
+
+        {/* Lyrics panel */}
+        {project.audio.fileName && (
+          <div className="glass-panel rounded-2xl p-6 mb-6">
+            <h3 className="font-display font-semibold text-ink mb-1 flex items-center gap-2">
+              <IconSubtitles size={18} className="text-teal" /> Lyrics
+            </h3>
+            <p className="text-sm text-ink-muted mb-4">
+              Paste your lyrics, then generate a sync. Grok proposes line-level
+              timing informed by your track's actual silence/instrumental gaps —
+              word-level timing is then derived automatically. Drag any line or
+              word on the timeline below to fine-tune it by hand at any time.
+            </p>
+            <LyricsPanel
+              projectId={project.id}
+              savedLyrics={project.lyrics}
+              durationSeconds={engine.duration}
+              currentTime={engine.currentTime}
+              decodedBuffer={engine.decodedBuffer}
+              onSeek={engine.seekToFraction}
             />
           </div>
         )}
