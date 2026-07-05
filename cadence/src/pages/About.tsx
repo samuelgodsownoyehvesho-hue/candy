@@ -11,7 +11,7 @@ const PRINCIPLES = [
   {
     icon: IconSparkles,
     title: 'AI proposes, you decide',
-    body: 'Grok handles the tedious first pass — sync, palette, font, mood — but nothing is locked. Every AI suggestion is an editable starting point.',
+    body: 'Groq handles the tedious first pass — sync, palette, font, mood — but nothing is locked. Every AI suggestion is an editable starting point.',
   },
   {
     icon: IconLayers,

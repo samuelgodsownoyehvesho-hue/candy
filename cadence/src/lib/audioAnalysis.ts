@@ -1,4 +1,7 @@
-import type { SilenceGap } from '@/types/lyrics';
+export interface SilenceGap {
+  start: number;
+  end: number;
+}
 
 export interface EnergyEnvelope {
   /** RMS energy per window, normalized to [0, 1] against the track's own peak */

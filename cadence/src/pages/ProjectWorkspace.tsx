@@ -330,17 +330,18 @@ export function ProjectWorkspace() {
               <IconSubtitles size={18} className="text-teal" /> Lyrics
             </h3>
             <p className="text-sm text-ink-muted mb-4">
-              Paste your lyrics, then generate a sync. Grok proposes line-level
-              timing informed by your track's actual silence/instrumental gaps —
-              word-level timing is then derived automatically. Drag any line or
-              word on the timeline below to fine-tune it by hand at any time.
+              Tap "Transcribe lyrics with AI" — Groq's Whisper model listens to
+              your track and detects the words with real timestamps, no typing
+              required. Review the list below, fix anything it misheard, and
+              nudge timing with the +/- buttons if a line needs adjusting.
             </p>
             <LyricsPanel
               projectId={project.id}
               savedLyrics={project.lyrics}
+              audioObjectUrl={audioObjectUrl}
+              audioFileName={project.audio.fileName}
               durationSeconds={engine.duration}
               currentTime={engine.currentTime}
-              decodedBuffer={engine.decodedBuffer}
               onSeek={engine.seekToFraction}
             />
           </div>

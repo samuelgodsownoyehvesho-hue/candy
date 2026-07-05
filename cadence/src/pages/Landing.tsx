@@ -24,7 +24,7 @@ const PIPELINE_STAGES = [
   {
     label: 'Analysis',
     title: 'AI reads the signal',
-    body: 'Grok detects BPM, key mood, and genre, then proposes a synced lyric timing, palette, and font pairing.',
+    body: 'Groq detects BPM, key mood, and genre, then proposes a synced lyric timing, palette, and font pairing.',
     icon: IconSparkles,
   },
   {

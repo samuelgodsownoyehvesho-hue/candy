@@ -7,7 +7,7 @@ export broadcast-ready video — all client-side.
 This repository is being built in **slices**: each slice is a complete, tested,
 deployable increment rather than a single all-at-once dump. That approach exists
 because the full spec (30 audio visualizers, 40 lyric templates, a multi-track
-timeline editor, full Grok AI integration, FFmpeg-WASM export, a template store,
+timeline editor, full Groq AI integration, FFmpeg-WASM export, a template store,
 etc.) is genuinely a multi-month product — building it all at once in one pass
 is how you end up with code that *looks* complete but silently doesn't compile
 or doesn't actually do what it claims. Building and verifying in real slices
@@ -15,50 +15,58 @@ avoids that.
 
 ## What's in this slice (Slice 4 — Lyric Editor)
 
-Adds a real lyric-sync system to the project workspace. One honest scoping
-note up front: **Grok is a text model, not an audio-listening one** — it
-can't literally hear your vocals to detect exact word timestamps the way a
-speech-to-text model would. So rather than oversell that, here's the actual
-(genuinely useful) architecture:
+Adds a real, AI-transcription-based lyric system to the project workspace.
+This went through a mid-build architecture correction worth documenting
+honestly: the first version of this slice used xAI's Grok (a text-only chat
+model) to *guess* line pacing from line length and detected silence gaps,
+since a text model can't literally hear vocals. Partway through, it became
+clear the actual intent was **Groq** (a different company, at groq.com,
+which hosts a fast Whisper speech-to-text model) — and Whisper genuinely
+*can* listen to the track and return real, audio-derived word timestamps.
+That's a strictly better foundation, so the feature was rebuilt around it
+rather than kept as a guess dressed up as AI:
 
-- **Real signal analysis** (`src/lib/audioAnalysis.ts`) computes an RMS
-  energy envelope from your track's actual decoded audio and detects
-  sustained low-energy stretches (intros, instrumental breaks, outros) —
-  real DSP, unit-tested against synthetic signals with known gaps
-- **Grok proposes line-level pacing** via a Vercel serverless function
-  (`api/grok-sync.js`), informed by that silence-gap data, each line's
-  length, and the track's duration — so lines land at sensible times and
-  never overlap a detected instrumental gap
-- **Word-level timing is derived deterministically** (`buildWordsForLine`)
-  from each line's proposed range, weighted by word length — this is local
-  math, not an AI guess, and is exactly what a person is expected to
-  fine-tune by hand afterward
-- **A deterministic fallback** (`naiveProportionalTimings`) kicks in
-  automatically if Grok is unreachable — including when running plain
-  `vite dev` locally with no serverless runtime — so the feature works
-  end-to-end either way; the UI is explicit about which one produced the
-  current sync
-- **Full manual override**: drag any line's body to move it, drag its edges
-  to resize it, or select a line to drag its individual words — pointer-based
-  timeline editing, plus arrow-key nudging for keyboard accessibility
-- **A live karaoke-style preview** highlighting the current word/line as your
-  track plays
-- **The Grok API key is server-side only** (`GROK_API_KEY`, not
-  `VITE_GROK_API_KEY`) — it's read by the Vercel serverless function via
-  `process.env` and never ships in the client bundle. This corrects a gap
-  flagged (but not yet fixed) in earlier slices.
+- **No typing or pasting lyrics required.** Tap "Transcribe lyrics with AI"
+  and Groq's Whisper model (`whisper-large-v3`) listens to your already-
+  uploaded track and returns real segment + word-level timestamps —
+  genuinely derived from the audio, not estimated from text
+- **A review list, not a drag timeline.** Detected lines appear as a
+  scrollable list of editable text boxes with a timestamp range on each —
+  this mirrors the pattern real lyric-video tools use, and is dramatically
+  better on a touchscreen than fine-grained pixel dragging. Small +/- nudge
+  buttons handle the rare case a line's boundary needs a small manual
+  correction; there's no separate word-level drag view, since Whisper's
+  timestamps are generally already accurate — what actually needs fixing is
+  Whisper occasionally mishearing a word, which is a text-edit problem, not
+  a timing one
+- **The Groq API key is server-side only** (`GROQ_API_KEY`), proxied through
+  a Vercel serverless function (`api/whisper-transcribe.js`) — the key never
+  reaches the browser. That function also converts the audio to base64,
+  forwards it to Groq's `audio/transcriptions` endpoint requesting both
+  segment- and word-level timestamps, and groups the flat word list under
+  the correct line
+- **Honest about a real platform limit:** Vercel's free-tier serverless
+  functions cap request bodies at 4.5MB. Base64-encoding audio inflates its
+  size by ~33%, so raw audio is capped at ~3.2MB here — longer or larger
+  tracks get a clear error explaining the limit and suggesting a shorter
+  clip or more compressed format, rather than silently failing
+  (`api/whisper-transcribe.js`)
+- **Manual fallback**: if transcription fails, is unavailable (e.g. no API
+  key set, or running plain `vite dev` locally with no serverless runtime),
+  or you just want to add a line by hand, "+ Add line" creates a blank,
+  editable entry positioned after the last line
+- **A live karaoke-style preview** highlighting the current word/line as
+  your track plays, using Whisper's real per-word timestamps
 
 **Also fixed in this slice:** a 404-on-refresh bug on Vercel deployments —
 Slice 1 shipped `netlify.toml`'s SPA redirect rule but never added the
 Vercel equivalent (`vercel.json`), which anyone deploying to Vercel instead
 of Netlify would have hit on any deep link or page refresh.
 
-**Verified, not assumed:** `tsc --noEmit` clean, `vite build` clean, 43/43
-Vitest tests passing (including a test that caught and fixed a real bug in
-the fallback timing algorithm, where a line's reported time range could
-visually straddle a silence gap even though no time was actually spent
-inside it), ESLint clean across both the TS/TSX app code and the new
-JS serverless function.
+**Verified, not assumed:** `tsc --noEmit` clean, `vite build` clean, 38/38
+Vitest tests passing (covering word-time distribution and the
+word-into-segment grouping logic against known inputs), ESLint clean across
+both the TS/TSX app code and the new JS serverless function.
 
 ## What's in Slice 3 (First Audio Visualizers)
 
@@ -127,7 +135,7 @@ transitions, the Template Store, Asset Library, and the Export Center
 | 1 ✅ | Core shell, routing, theme, project CRUD |
 | 2 ✅ | Audio engine — waveform (WaveSurfer.js), spectrogram (FFT + Web Worker), frequency analyzer, IndexedDB persistence |
 | 3 ✅ | First 4 audio visualizers (Waveform, Spectrum Bars, Circular Spectrum, Particle) with the full 17-property control set — shared rendering pattern for the remaining 26 |
-| 4 ✅ | Lyric Editor — Grok-assisted line sync (via a secure serverless proxy) with full manual drag-to-edit override, deterministic fallback when AI is unavailable |
+| 4 ✅ | Lyric Editor — AI transcription via Groq Whisper (real audio-derived timestamps, no typing lyrics), reviewable/editable list with timing nudge buttons |
 | 5 | Timeline/multi-track editor — trim, split, merge, keyframes, undo/redo, snap guides |
 | 6 | Export Center — FFmpeg-WASM, MP4/MOV/WebM/GIF, 720p–4K, 24/30/60fps, background export, retry/cancel, progress |
 | 7 | Template Store, Asset Library, remaining 26 visualizers/40 templates, polish pass |
@@ -147,16 +155,17 @@ like a real signal chain, not decoration.
 ```
 cadence/
 ├─ api/
-│  └─ grok-sync.js             # Vercel serverless function — proxies Grok,
-│                                # keeps GROK_API_KEY server-side only
+│  └─ whisper-transcribe.js     # Vercel serverless function — proxies Groq
+│                                # Whisper, keeps GROQ_API_KEY server-side only
 ├─ public/
 │  └─ favicon.svg
 ├─ src/
 │  ├─ components/
 │  │  ├─ audio/                 # AudioEnginePanel, WaveformView, PlaybackControls,
 │  │  │                          # FrequencyAnalyzer, SpectrogramView
-│  │  ├─ lyrics/                # LyricsPanel, LyricInputPanel,
-│  │  │                          # LyricTimelineEditor (drag-to-edit), LyricPreview
+│  │  ├─ lyrics/                # LyricsPanel, LyricGeneratePanel (transcribe
+│  │  │                          # trigger), LyricReviewList (tap-to-edit +
+│  │  │                          # nudge buttons), LyricPreview
 │  │  ├─ visualizer/            # VisualizerPanel, VisualizerCanvas (rAF loop +
 │  │  │                          # post-processing pipeline), VisualizerTypePicker,
 │  │  │                          # VisualizerControlPanel
@@ -175,8 +184,8 @@ cadence/
 │  │  ├─ audioDb.ts             # IndexedDB wrapper for uploaded audio blobs
 │  │  ├─ color.ts                # hex/rgb/lerp color helpers
 │  │  ├─ fft.ts                 # radix-2 Cooley-Tukey FFT + Hann window
-│  │  ├─ grokClient.ts          # client-side caller for /api/grok-sync
-│  │  ├─ lyrics.ts              # parsing, word-timing distribution, sync orchestration
+│  │  ├─ groqClient.ts          # client-side caller for /api/whisper-transcribe
+│  │  ├─ lyrics.ts              # word-time distribution + word-into-segment grouping
 │  │  ├─ visualizerEngine.ts    # per-type canvas draw functions + particle system
 │  │  └─ storage.ts             # defensive localStorage wrapper
 │  ├─ pages/                    # Splash, Landing, Dashboard, Projects,
@@ -243,7 +252,7 @@ npm run format       # Prettier write
 ## Deployment (Vercel or Netlify)
 
 This repo deploys cleanly to either. **Vercel is the primary target** as of
-this slice, since `api/grok-sync.js` uses Vercel's zero-config serverless
+this slice, since `api/whisper-transcribe.js` uses Vercel's zero-config serverless
 functions convention (any file under `/api` automatically becomes an
 endpoint — no extra setup needed).
 
@@ -264,36 +273,41 @@ endpoint — no extra setup needed).
 
 `netlify.toml` is also configured (build command, publish dir, SPA
 redirect, and the COOP/COEP headers FFmpeg-WASM will need in a later slice).
-**Note:** `api/grok-sync.js` is written using Vercel's serverless function
-convention — deploying to Netlify instead would need that endpoint
+**Note:** `api/whisper-transcribe.js` is written using Vercel's serverless
+function convention — deploying to Netlify instead would need that endpoint
 reimplemented as a Netlify Function (different file location and handler
-signature). Until that's done, lyric sync running on Netlify will always use
-the local deterministic fallback, not Grok.
+signature). Until that's done, AI lyric transcription simply won't be
+available on Netlify (the manual "+ Add line" flow still works everywhere).
 
-## Grok API setup
+## Groq API setup
 
-The Grok integration is real and working as of Slice 4, proxied through
-`api/grok-sync.js` so the API key never reaches the browser:
+The Groq Whisper integration is real and working as of Slice 4, proxied
+through `api/whisper-transcribe.js` so the API key never reaches the
+browser:
 
-1. Get an API key from [console.x.ai](https://console.x.ai).
-2. Set it as `GROK_API_KEY` (no `VITE_` prefix — see why below) in Vercel's
+1. Get an API key from [console.groq.com](https://console.groq.com).
+2. Set it as `GROQ_API_KEY` (no `VITE_` prefix — see why below) in Vercel's
    environment variables, or in a local `.env` file if using `vercel dev`.
-3. `GROK_API_BASE_URL` and `GROK_MODEL` have sensible defaults in
-   `.env.example` — override only if xAI changes their endpoint or you want a
-   different model.
 
 **Why no `VITE_` prefix:** any `VITE_*` variable gets bundled into the
 client-side JS and is publicly visible in the browser — fine for things like
-a base URL, not fine for a billable API key. `GROK_API_KEY` is read
-server-side only, inside `api/grok-sync.js`, via `process.env`. An earlier
-slice's README flagged this as a "should fix later" — this is that fix.
+a base URL, not fine for a billable API key. `GROQ_API_KEY` is read
+server-side only, inside `api/whisper-transcribe.js`, via `process.env`.
+
+**A real platform limit worth knowing:** Vercel's free-tier serverless
+functions cap request bodies at 4.5MB, and base64-encoding audio inflates
+its size by roughly a third — so this endpoint caps raw audio at ~3.2MB.
+A typical 3-4 minute MP3 at a moderate bitrate is usually fine; a WAV file
+or a long track at high bitrate may not be. The error message you'll see if
+a file is too large explains this and suggests compressing or shortening
+the track.
 
 **Local development:** plain `npm run dev` (via Vite) does not run
-serverless functions, so `/api/grok-sync` won't exist locally that way —
-lyric sync will automatically use the deterministic fallback algorithm
-instead, and the UI clearly indicates which one produced the current sync.
-To test the real Grok path locally, use the Vercel CLI's `vercel dev`
-instead, which emulates the serverless environment.
+serverless functions, so `/api/whisper-transcribe` won't exist locally that
+way — AI transcription will show a clear error, and you can still add lines
+manually via "+ Add line". To test the real Groq Whisper path locally, use
+the Vercel CLI's `vercel dev` instead, which emulates the serverless
+environment.
 
 ## Troubleshooting
 
@@ -305,11 +319,12 @@ instead, which emulates the serverless environment.
   `rewrites` block wasn't stripped.
 - **404 on refresh / deep link (Netlify)** — confirm the
   `[[redirects]]` block in `netlify.toml` wasn't stripped.
-- **Lyric sync always says "local timing algorithm" even with a Grok key
-  set** — confirm `GROK_API_KEY` (not `VITE_GROK_API_KEY`) is set in your
-  deployment's environment variables, and that you're deploying to Vercel
-  (or running `vercel dev` locally) rather than plain Netlify/`vite dev`,
-  neither of which currently execute `api/grok-sync.js`.
+- **"Transcribe lyrics with AI" always errors** — confirm `GROQ_API_KEY`
+  (no `VITE_` prefix) is set in your deployment's environment variables, and
+  that you're deploying to Vercel (or running `vercel dev` locally) rather
+  than plain Netlify/`vite dev`, neither of which currently execute
+  `api/whisper-transcribe.js`. Also check the error message itself — a 413
+  means the file exceeded the ~3.2MB raw-audio limit described above.
 - **Theme flashes the wrong mode on load** — this is a known tradeoff of
   client-side theme detection without SSR; it self-corrects within one paint
   and doesn't affect functionality.

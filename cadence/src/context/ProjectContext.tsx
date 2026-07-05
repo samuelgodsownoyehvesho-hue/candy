@@ -339,7 +339,7 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
         ...p,
         lyrics,
         status: p.status === 'draft' ? 'in-progress' : p.status,
-        completion: Math.max(p.completion, lyrics?.syncStatus === 'word-synced' ? 60 : p.completion),
+        completion: Math.max(p.completion, lyrics?.syncStatus === 'transcribed' ? 60 : p.completion),
       }));
     },
     [touchAndUpdate],
