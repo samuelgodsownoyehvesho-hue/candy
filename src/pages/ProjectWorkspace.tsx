@@ -235,7 +235,7 @@ export function ProjectWorkspace() {
                   className={clsx(
                     'px-3 py-1.5 rounded-full text-xs font-medium transition-colors btn-focus-ring',
                     project.status === status
-                      ? 'bg-gradient-to-r from-amber to-amber-deep text-void'
+                      ? 'bg-gradient-to-r from-amber to-amber-deep text-obsidian'
                       : 'glass-raised text-ink-muted hover:text-ink',
                   )}
                 >

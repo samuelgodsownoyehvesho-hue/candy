@@ -50,7 +50,7 @@ export function PlaybackControls({
           onClick={onTogglePlay}
           disabled={disabled}
           aria-label={isPlaying ? 'Pause' : 'Play'}
-          className="btn-focus-ring h-10 w-10 rounded-full bg-gradient-to-br from-amber to-amber-deep text-void flex items-center justify-center disabled:opacity-30 hover:shadow-glow-amber transition-shadow"
+          className="btn-focus-ring h-10 w-10 rounded-full bg-gradient-to-br from-amber to-amber-deep text-obsidian flex items-center justify-center disabled:opacity-30 hover:shadow-glow-amber transition-shadow"
         >
           {isPlaying ? <IconPause size={16} /> : <IconPlay size={16} />}
         </button>

@@ -234,7 +234,7 @@ function EmptyState({ onCreate }: { onCreate: () => void }) {
   return (
     <div className="glass-panel rounded-2xl p-12 flex flex-col items-center text-center gap-4">
       <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-amber to-teal flex items-center justify-center">
-        <IconPlus size={20} className="text-void" />
+        <IconPlus size={20} className="text-obsidian" />
       </div>
       <div>
         <h3 className="font-display font-semibold text-ink mb-1">No projects yet</h3>

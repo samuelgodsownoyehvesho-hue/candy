@@ -49,7 +49,7 @@ export function Splash() {
         className="relative flex flex-col items-center gap-5"
       >
         <div className="h-16 w-16 rounded-2xl bg-gradient-to-br from-amber to-teal flex items-center justify-center shadow-glow-amber">
-          <IconWaveform size={28} className="text-void" />
+          <IconWaveform size={28} className="text-obsidian" />
         </div>
         <h1 className="font-display text-3xl font-semibold text-ink tracking-tight">
           Cadence

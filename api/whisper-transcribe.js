@@ -1,10 +1,14 @@
 import { nanoid } from 'nanoid';
+import { del } from '@vercel/blob';
 
 /**
- * Vercel serverless function: sends the uploaded track to Groq's Whisper
- * API for real audio transcription with word + segment level timestamps,
- * and returns lyric lines built from that. The API key lives in the
- * server-side GROQ_API_KEY env var and never reaches the client.
+ * Vercel serverless function: given a Vercel Blob URL (the audio was
+ * already uploaded directly to Blob storage by the client — see
+ * api/audio-upload.js — so it never passed through this function's
+ * request body), fetches the audio server-side and forwards it to Groq's
+ * Whisper API for transcription. Server-side fetches aren't subject to
+ * the same request-body size cap as client requests, which is what
+ * removes the earlier ~3.2MB ceiling this endpoint used to have.
  *
  * Intentionally plain JS with the word-grouping logic duplicated inline
  * (rather than importing from src/lib/lyrics.ts) to keep this Vercel
@@ -13,10 +17,10 @@ import { nanoid } from 'nanoid';
  * client-side equivalent of the same small algorithm.
  */
 
-// Vercel Hobby plan caps serverless function request bodies at 4.5MB. Base64
-// inflates size by ~33%, so we cap the raw audio at ~3.2MB to leave
-// headroom under that limit after encoding + JSON overhead.
-const MAX_RAW_BYTES = 3.2 * 1024 * 1024;
+// Groq's Whisper API itself caps uploads around 25MB — this guard mirrors
+// that rather than any Vercel-specific limit, since the Blob-based upload
+// path no longer routes audio through this function's request body.
+const MAX_RAW_BYTES = 25 * 1024 * 1024;
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -32,16 +36,31 @@ export default async function handler(req, res) {
     return;
   }
 
-  const { audioBase64, fileName, mimeType } = req.body ?? {};
-  if (typeof audioBase64 !== 'string' || audioBase64.length === 0) {
-    res.status(400).json({ error: 'Request must include a non-empty `audioBase64` string.' });
+  const { audioUrl, fileName, mimeType } = req.body ?? {};
+  if (typeof audioUrl !== 'string' || audioUrl.length === 0) {
+    res.status(400).json({ error: 'Request must include a non-empty `audioUrl` string.' });
     return;
   }
 
-  const buffer = Buffer.from(audioBase64, 'base64');
+  let buffer;
+  try {
+    const audioRes = await fetch(audioUrl);
+    if (!audioRes.ok) {
+      res.status(502).json({ error: `Could not fetch the uploaded audio (${audioRes.status}).` });
+      return;
+    }
+    const arrayBuffer = await audioRes.arrayBuffer();
+    buffer = Buffer.from(arrayBuffer);
+  } catch (err) {
+    res.status(502).json({
+      error: `Could not fetch the uploaded audio: ${err instanceof Error ? err.message : 'unknown error'}`,
+    });
+    return;
+  }
+
   if (buffer.byteLength > MAX_RAW_BYTES) {
     res.status(413).json({
-      error: `That file is too large to transcribe here (${(buffer.byteLength / 1024 / 1024).toFixed(1)}MB). Vercel's free-tier serverless functions cap request bodies at 4.5MB, which limits us to roughly ${(MAX_RAW_BYTES / 1024 / 1024).toFixed(1)}MB of raw audio. Try a shorter clip or a more compressed format (e.g. a lower-bitrate MP3).`,
+      error: `That file is too large to transcribe (${(buffer.byteLength / 1024 / 1024).toFixed(1)}MB). Groq's Whisper API caps uploads at ~25MB — try a shorter clip or a more compressed format.`,
     });
     return;
   }
@@ -93,8 +112,6 @@ export default async function handler(req, res) {
         };
       });
     } else if (words.length > 0) {
-      // Fallback: no segments returned, so chunk the flat word list into
-      // lines using natural pauses between words (>0.6s gap) as line breaks.
       lines = [];
       let current = [];
       for (let i = 0; i < words.length; i++) {
@@ -129,6 +146,8 @@ export default async function handler(req, res) {
     }
 
     res.status(200).json({ lines, usedAI: true });
+
+    del(audioUrl).catch(() => {});
   } catch (err) {
     res.status(500).json({
       error: `Failed to reach the Groq API: ${err instanceof Error ? err.message : 'unknown error'}`,

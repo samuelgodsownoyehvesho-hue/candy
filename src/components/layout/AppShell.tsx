@@ -10,7 +10,7 @@ interface AppShellProps {
 
 export function AppShell({ title, children, onCreateProject }: AppShellProps) {
   return (
-    <div className="flex min-h-screen bg-void theme-light:bg-paper">
+    <div className="flex min-h-screen bg-void">
       <Sidebar />
       <div className="flex-1 flex flex-col min-w-0">
         <Topbar title={title} onCreateProject={onCreateProject} />

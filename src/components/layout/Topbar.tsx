@@ -43,7 +43,7 @@ export function Topbar({ title, onCreateProject }: TopbarProps) {
             onClick={() => setMobileOpen(true)}
             aria-label="Open navigation menu"
           >
-            <IconWaveform size={16} className="text-void" />
+            <IconWaveform size={16} className="text-obsidian" />
           </button>
           <h1 className="font-display text-lg md:text-xl font-semibold text-ink">{title}</h1>
         </div>
@@ -87,7 +87,7 @@ export function Topbar({ title, onCreateProject }: TopbarProps) {
           <div className="flex items-center justify-between mb-6">
             <div className="flex items-center gap-2.5">
               <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-amber to-teal flex items-center justify-center">
-                <IconWaveform size={16} className="text-void" />
+                <IconWaveform size={16} className="text-obsidian" />
               </div>
               <span className="font-display font-semibold text-lg">Cadence</span>
             </div>

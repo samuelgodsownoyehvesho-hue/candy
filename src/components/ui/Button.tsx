@@ -13,9 +13,9 @@ interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 
 const variantClasses: Record<Variant, string> = {
   primary:
-    'bg-gradient-to-r from-amber to-amber-deep text-void font-semibold hover:shadow-glow-amber',
+    'bg-gradient-to-r from-amber to-amber-deep text-obsidian font-semibold hover:shadow-glow-amber',
   secondary:
-    'glass-raised text-ink dark:text-ink theme-light:text-inkLight hover:border-teal/40',
+    'glass-raised text-ink hover:border-teal/40',
   ghost: 'bg-transparent text-ink-muted hover:text-ink hover:bg-white/5',
   danger: 'bg-clip/15 text-clip-soft border border-clip/30 hover:bg-clip/25',
 };

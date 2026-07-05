@@ -25,7 +25,7 @@ export function Sidebar() {
     <aside className="hidden md:flex w-60 shrink-0 flex-col h-screen sticky top-0 glass-panel border-r border-void-line">
       <div className="px-5 py-6 flex items-center gap-2.5">
         <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-amber to-teal flex items-center justify-center">
-          <IconWaveform size={16} className="text-void" />
+          <IconWaveform size={16} className="text-obsidian" />
         </div>
         <span className="font-display font-semibold text-lg tracking-tight">Cadence</span>
       </div>

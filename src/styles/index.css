@@ -3,8 +3,32 @@
 @tailwind utilities;
 
 @layer base {
+  :root {
+    /* Dark theme (default) — space-separated RGB so Tailwind's
+       rgb(var(--x) / <alpha-value>) opacity utilities work correctly. */
+    --void: 12 14 17;
+    --void-panel: 20 23 28;
+    --void-raised: 27 31 38;
+    --void-line: 38 43 51;
+    --ink: 242 239 233;
+    --ink-muted: 154 160 170;
+    --ink-dim: 92 98 112;
+  }
+
+  body.theme-light {
+    /* Warm paper tones, not stark white — keeps the same "studio" identity
+       instead of flattening into a generic bright SaaS look. */
+    --void: 245 242 236;
+    --void-panel: 255 255 255;
+    --void-raised: 236 232 223;
+    --void-line: 214 208 195;
+    --ink: 27 29 34;
+    --ink-muted: 82 88 99;
+    --ink-dim: 128 134 147;
+  }
+
   * {
-    @apply border-void-line dark:border-void-line;
+    @apply border-void-line;
   }
 
   html {
@@ -13,10 +37,6 @@
 
   body {
     @apply bg-void text-ink font-body antialiased transition-colors duration-300;
-  }
-
-  body.theme-light {
-    @apply bg-paper text-inkLight;
   }
 
   h1, h2, h3, h4 {
@@ -42,11 +62,11 @@
     background: transparent;
   }
   ::-webkit-scrollbar-thumb {
-    background: #262b33;
+    background: rgb(var(--void-line));
     border-radius: 999px;
   }
   ::-webkit-scrollbar-thumb:hover {
-    background: #3a414c;
+    background: rgb(var(--ink-dim));
   }
 
   @media (prefers-reduced-motion: reduce) {
@@ -63,19 +83,15 @@
 
 @layer components {
   .glass-panel {
-    @apply bg-void-panel/70 backdrop-blur-md border border-white/[0.06] shadow-glass;
+    @apply bg-void-panel/70 backdrop-blur-md border border-void-line/60 shadow-glass;
   }
 
-  .theme-light .glass-panel {
-    @apply bg-white/70 border-black/[0.06] shadow-none;
+  body.theme-light .glass-panel {
+    @apply shadow-none;
   }
 
   .glass-raised {
-    @apply bg-void-raised/80 backdrop-blur-sm border border-white/[0.08];
-  }
-
-  .theme-light .glass-raised {
-    @apply bg-paper-raised/90 border-black/[0.06];
+    @apply bg-void-raised/80 backdrop-blur-sm border border-void-line/70;
   }
 
   .text-gradient-signal {

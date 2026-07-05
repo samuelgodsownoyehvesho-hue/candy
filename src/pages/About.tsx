@@ -35,7 +35,7 @@ export function About() {
           </div>
           <div className="relative">
             <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-amber to-teal flex items-center justify-center mb-5">
-              <IconWaveform size={22} className="text-void" />
+              <IconWaveform size={22} className="text-obsidian" />
             </div>
             <h1 className="font-display text-2xl md:text-3xl font-semibold text-ink mb-3">
               Cadence is a studio, not a template factory.

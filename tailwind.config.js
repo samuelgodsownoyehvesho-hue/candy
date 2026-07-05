@@ -5,28 +5,25 @@ export default {
   theme: {
     extend: {
       colors: {
+        // Theme-reactive: these read from CSS custom properties defined in
+        // index.css, redefined under body.theme-light — so bg-void/text-ink
+        // etc. automatically adapt to the active theme everywhere they're
+        // used, with no per-component dark:/light: class needed.
         void: {
-          DEFAULT: '#0C0E11',
-          panel: '#14171C',
-          raised: '#1B1F26',
-          line: '#262B33',
-        },
-        paper: {
-          DEFAULT: '#F5F2EC',
-          panel: '#FFFFFF',
-          raised: '#ECE8DF',
-          line: '#DDD7C9',
+          DEFAULT: 'rgb(var(--void) / <alpha-value>)',
+          panel: 'rgb(var(--void-panel) / <alpha-value>)',
+          raised: 'rgb(var(--void-raised) / <alpha-value>)',
+          line: 'rgb(var(--void-line) / <alpha-value>)',
         },
         ink: {
-          DEFAULT: '#F2EFE9',
-          muted: '#9AA0AA',
-          dim: '#5C6270',
+          DEFAULT: 'rgb(var(--ink) / <alpha-value>)',
+          muted: 'rgb(var(--ink-muted) / <alpha-value>)',
+          dim: 'rgb(var(--ink-dim) / <alpha-value>)',
         },
-        inkLight: {
-          DEFAULT: '#1B1D22',
-          muted: '#5E6470',
-          dim: '#8C92A0',
-        },
+        // Static, NOT theme-reactive: always near-black, used specifically
+        // for icon/text placed on top of bright amber/teal accent buttons,
+        // which need dark contrast regardless of the active page theme.
+        obsidian: '#0C0E11',
         amber: {
           DEFAULT: '#E8A33D',
           soft: '#F0C07A',

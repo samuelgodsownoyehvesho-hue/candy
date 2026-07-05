@@ -41,22 +41,31 @@ rather than kept as a guess dressed up as AI:
   a timing one
 - **The Groq API key is server-side only** (`GROQ_API_KEY`), proxied through
   a Vercel serverless function (`api/whisper-transcribe.js`) — the key never
-  reaches the browser. That function also converts the audio to base64,
-  forwards it to Groq's `audio/transcriptions` endpoint requesting both
-  segment- and word-level timestamps, and groups the flat word list under
-  the correct line
-- **Honest about a real platform limit:** Vercel's free-tier serverless
-  functions cap request bodies at 4.5MB. Base64-encoding audio inflates its
-  size by ~33%, so raw audio is capped at ~3.2MB here — longer or larger
-  tracks get a clear error explaining the limit and suggesting a shorter
-  clip or more compressed format, rather than silently failing
-  (`api/whisper-transcribe.js`)
+  reaches the browser. Audio uploads directly from the browser to **Vercel
+  Blob storage** (`api/audio-upload.js`), then the transcribe function
+  fetches it server-side and forwards it to Groq's `audio/transcriptions`
+  endpoint requesting both segment- and word-level timestamps, grouping the
+  flat word list under the correct line
+- **Bypasses Vercel's request-body limit properly.** An earlier version of
+  this sent audio as base64 JSON directly through the serverless function,
+  capped at ~3.2MB to stay under Vercel's 4.5MB body limit. Routing the
+  upload through Vercel Blob storage instead means audio never passes
+  through that function's request body at all — the practical ceiling is
+  now Groq's own ~25MB Whisper API limit, not a Vercel-specific one
 - **Manual fallback**: if transcription fails, is unavailable (e.g. no API
-  key set, or running plain `vite dev` locally with no serverless runtime),
-  or you just want to add a line by hand, "+ Add line" creates a blank,
-  editable entry positioned after the last line
+  key set, no Blob store connected, or running plain `vite dev` locally with
+  no serverless runtime), or you just want to add a line by hand, "+ Add
+  line" creates a blank, editable entry positioned after the last line
 - **A live karaoke-style preview** highlighting the current word/line as
   your track plays, using Whisper's real per-word timestamps
+- **Fixed a real light-mode bug**: `theme-light:` was being used throughout
+  as if it were a Tailwind variant, but it was never registered as one —
+  meaning every light-mode color override silently did nothing, and the
+  light theme rendered using dark-tuned text colors on a light background
+  (washed out, low contrast). Fixed by making the core color tokens
+  (`void`, `ink`) genuinely theme-reactive via CSS custom properties defined
+  in `index.css`, so they adapt automatically everywhere without needing a
+  variant class on every element
 
 **Also fixed in this slice:** a 404-on-refresh bug on Vercel deployments —
 Slice 1 shipped `netlify.toml`'s SPA redirect rule but never added the
@@ -155,6 +164,7 @@ like a real signal chain, not decoration.
 ```
 cadence/
 ├─ api/
+│  ├─ audio-upload.js           # Vercel Blob client-upload token handshake
 │  └─ whisper-transcribe.js     # Vercel serverless function — proxies Groq
 │                                # Whisper, keeps GROQ_API_KEY server-side only
 ├─ public/
@@ -281,33 +291,62 @@ available on Netlify (the manual "+ Add line" flow still works everywhere).
 
 ## Groq API setup
 
-The Groq Whisper integration is real and working as of Slice 4, proxied
-through `api/whisper-transcribe.js` so the API key never reaches the
-browser:
+The Groq Whisper integration is real and working, proxied through
+`api/whisper-transcribe.js` so the API key never reaches the browser.
 
-1. Get an API key from [console.groq.com](https://console.groq.com).
-2. Set it as `GROQ_API_KEY` (no `VITE_` prefix — see why below) in Vercel's
-   environment variables, or in a local `.env` file if using `vercel dev`.
+**Audio upload architecture (updated):** the first version of this feature
+sent audio to the serverless function as base64 JSON, capped at ~3.2MB to
+stay under Vercel's 4.5MB request-body limit. That was a real, hard
+constraint — not a bug — so it's been replaced with a proper fix: audio now
+uploads **directly from the browser to Vercel Blob storage** (via
+`api/audio-upload.js`, using Vercel's documented client-upload token
+handshake), completely bypassing the serverless function body-size limit.
+`api/whisper-transcribe.js` then fetches the file server-side from Blob
+storage and forwards it to Groq — server-to-server fetches aren't subject
+to that same client request-body cap. The practical ceiling is now Groq's
+own Whisper API limit (~25MB) rather than Vercel's.
 
-**Why no `VITE_` prefix:** any `VITE_*` variable gets bundled into the
-client-side JS and is publicly visible in the browser — fine for things like
-a base URL, not fine for a billable API key. `GROQ_API_KEY` is read
-server-side only, inside `api/whisper-transcribe.js`, via `process.env`.
+**Setup — two things needed, both in your Vercel dashboard:**
 
-**A real platform limit worth knowing:** Vercel's free-tier serverless
-functions cap request bodies at 4.5MB, and base64-encoding audio inflates
-its size by roughly a third — so this endpoint caps raw audio at ~3.2MB.
-A typical 3-4 minute MP3 at a moderate bitrate is usually fine; a WAV file
-or a long track at high bitrate may not be. The error message you'll see if
-a file is too large explains this and suggests compressing or shortening
-the track.
+1. **Groq API key**: get one from [console.groq.com](https://console.groq.com),
+   then add it as `GROQ_API_KEY` (no `VITE_` prefix — see why below) under
+   **Project Settings → Environment Variables**.
+2. **Vercel Blob store**: go to your project's **Storage** tab → **Create
+   Database** → **Blob** → connect it to this project. Vercel automatically
+   injects `BLOB_READ_WRITE_TOKEN` into your deployment once connected — you
+   don't need to copy/paste this one yourself.
+
+Redeploy after adding these (Vercel does not automatically redeploy just
+because you added an environment variable or connected storage — you need
+to trigger a new deployment, e.g. via **Deployments → ⋯ → Redeploy**, or
+by pushing a new commit).
+
+**Why no `VITE_` prefix on the Groq key:** any `VITE_*` variable gets
+bundled into the client-side JS and is publicly visible in the browser —
+fine for things like a base URL, not fine for a billable API key.
+`GROQ_API_KEY` is read server-side only, inside `api/whisper-transcribe.js`,
+via `process.env`.
+
+**One thing worth flagging honestly:** the Vercel Blob client-upload
+handshake (`api/audio-upload.js` + `@vercel/blob/client`'s `upload()` on the
+client side) is implemented against Vercel's documented pattern, but this
+specific piece — the token handshake talking to live Blob storage — can
+only be verified end-to-end on an actual Vercel deployment; there's no way
+to simulate real Vercel Blob storage in a local sandbox. Everything else in
+this repo (`tsc`, `vite build`, the full Vitest suite, ESLint) has been run
+and passes, but this one integration point needs your live deployment to
+confirm it end-to-end. If "Transcribe lyrics with AI" errors specifically
+during the *upload* step (rather than the transcription step), that's the
+first place to look — check the browser console for the exact error and
+the function logs in Vercel's dashboard.
 
 **Local development:** plain `npm run dev` (via Vite) does not run
-serverless functions, so `/api/whisper-transcribe` won't exist locally that
-way — AI transcription will show a clear error, and you can still add lines
-manually via "+ Add line". To test the real Groq Whisper path locally, use
-the Vercel CLI's `vercel dev` instead, which emulates the serverless
-environment.
+serverless functions, so neither `/api/audio-upload` nor
+`/api/whisper-transcribe` exist locally that way — AI transcription will
+show a clear error, and you can still add lines manually via "+ Add line".
+To test the real path locally, use the Vercel CLI's `vercel dev` instead
+(with `vercel env pull` to get `BLOB_READ_WRITE_TOKEN` and `GROQ_API_KEY`
+into a local `.env`).
 
 ## Troubleshooting
 
@@ -319,12 +358,25 @@ environment.
   `rewrites` block wasn't stripped.
 - **404 on refresh / deep link (Netlify)** — confirm the
   `[[redirects]]` block in `netlify.toml` wasn't stripped.
-- **"Transcribe lyrics with AI" always errors** — confirm `GROQ_API_KEY`
-  (no `VITE_` prefix) is set in your deployment's environment variables, and
-  that you're deploying to Vercel (or running `vercel dev` locally) rather
-  than plain Netlify/`vite dev`, neither of which currently execute
-  `api/whisper-transcribe.js`. Also check the error message itself — a 413
-  means the file exceeded the ~3.2MB raw-audio limit described above.
+- **"Transcribe lyrics with AI" says the server has no Groq API key, even
+  though you set one** — the most common cause: Vercel does not
+  automatically redeploy just because you added or changed an environment
+  variable. Go to **Deployments → (latest) → ⋯ → Redeploy** after adding
+  `GROQ_API_KEY` or connecting a Blob store. Also double-check the exact
+  spelling (`GROQ`, not `GROK`) and that the key came from
+  [console.groq.com](https://console.groq.com), not a different provider's
+  console.
+- **"Transcribe lyrics with AI" errors during upload specifically** —
+  confirm a Blob store is connected under your Vercel project's **Storage**
+  tab; without one, `BLOB_READ_WRITE_TOKEN` won't exist and the upload step
+  will fail before it ever reaches Groq.
+- **A 413 error during transcription** — the file exceeded Groq's own
+  ~25MB Whisper API limit; try a shorter clip or a more compressed format.
+- **Light mode looked broken/washed out in an earlier build** — this was a
+  real bug (see the Slice 4 notes above): `theme-light:` was never a valid
+  Tailwind variant, so light-mode color overrides silently did nothing. This
+  is fixed as of this update; if you still see it, confirm you're on the
+  latest deployed commit.
 - **Theme flashes the wrong mode on load** — this is a known tradeoff of
   client-side theme detection without SSR; it self-corrects within one paint
   and doesn't affect functionality.

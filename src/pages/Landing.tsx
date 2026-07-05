@@ -46,12 +46,12 @@ export function Landing() {
   const { theme, toggleTheme } = useTheme();
 
   return (
-    <div className="min-h-screen bg-void theme-light:bg-paper text-ink theme-light:text-inkLight">
+    <div className="min-h-screen bg-void text-ink">
       <header className="sticky top-0 z-30 glass-panel border-b border-void-line">
         <div className="max-w-6xl mx-auto px-5 md:px-8 py-4 flex items-center justify-between">
           <div className="flex items-center gap-2.5">
             <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-amber to-teal flex items-center justify-center">
-              <IconWaveform size={16} className="text-void" />
+              <IconWaveform size={16} className="text-obsidian" />
             </div>
             <span className="font-display font-semibold text-lg">Cadence</span>
           </div>
@@ -86,7 +86,7 @@ export function Landing() {
               <br />
               with the <span className="text-gradient-signal">signal</span>.
             </h1>
-            <p className="mt-5 text-ink-muted theme-light:text-inkLight-muted text-base md:text-lg max-w-md">
+            <p className="mt-5 text-ink-muted text-base md:text-lg max-w-md">
               Cadence listens to your track, syncs every word, and renders a
               cinematic lyric video — guided by AI, finished by hand.
             </p>
@@ -127,7 +127,7 @@ export function Landing() {
         <h2 className="font-display text-2xl md:text-3xl font-semibold mb-2">
           One signal chain, start to export
         </h2>
-        <p className="text-ink-muted theme-light:text-inkLight-muted mb-10 max-w-lg">
+        <p className="text-ink-muted mb-10 max-w-lg">
           Every project moves through the same four stages of the chain — each one visible and editable, never a black box.
         </p>
         <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -145,7 +145,7 @@ export function Landing() {
                 <stage.icon size={18} className="text-teal" />
               </div>
               <h3 className="font-display font-semibold text-ink">{stage.title}</h3>
-              <p className="text-sm text-ink-muted theme-light:text-inkLight-muted leading-relaxed">
+              <p className="text-sm text-ink-muted leading-relaxed">
                 {stage.body}
               </p>
             </motion.div>
@@ -160,7 +160,7 @@ export function Landing() {
             <h2 className="font-display text-2xl md:text-3xl font-semibold mb-2">
               Your next lyric video starts with one upload.
             </h2>
-            <p className="text-ink-muted theme-light:text-inkLight-muted max-w-md">
+            <p className="text-ink-muted max-w-md">
               No card required to start building — bring your track and your words.
             </p>
           </div>

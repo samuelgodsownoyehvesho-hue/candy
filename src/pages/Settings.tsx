@@ -52,7 +52,7 @@ export function Settings() {
             <button
               onClick={() => setTheme('dark')}
               className={`flex-1 flex items-center gap-2 justify-center rounded-xl px-4 py-3 text-sm font-medium transition-colors btn-focus-ring ${
-                theme === 'dark' ? 'bg-gradient-to-r from-amber to-amber-deep text-void' : 'glass-raised text-ink-muted'
+                theme === 'dark' ? 'bg-gradient-to-r from-amber to-amber-deep text-obsidian' : 'glass-raised text-ink-muted'
               }`}
             >
               <IconMoon size={16} /> Dark
@@ -60,7 +60,7 @@ export function Settings() {
             <button
               onClick={() => setTheme('light')}
               className={`flex-1 flex items-center gap-2 justify-center rounded-xl px-4 py-3 text-sm font-medium transition-colors btn-focus-ring ${
-                theme === 'light' ? 'bg-gradient-to-r from-amber to-amber-deep text-void' : 'glass-raised text-ink-muted'
+                theme === 'light' ? 'bg-gradient-to-r from-amber to-amber-deep text-obsidian' : 'glass-raised text-ink-muted'
               }`}
             >
               <IconSun size={16} /> Light

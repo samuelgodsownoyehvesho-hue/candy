@@ -137,7 +137,7 @@ export function Projects() {
             className={clsx(
               'px-3.5 py-1.5 rounded-full text-sm font-medium whitespace-nowrap transition-colors btn-focus-ring',
               filter === tab.key
-                ? 'bg-gradient-to-r from-amber to-amber-deep text-void'
+                ? 'bg-gradient-to-r from-amber to-amber-deep text-obsidian'
                 : 'glass-raised text-ink-muted hover:text-ink',
             )}
           >
