@@ -21,6 +21,7 @@ import { del } from '@vercel/blob';
 const MAX_RAW_BYTES = 25 * 1024 * 1024; // Groq's own Whisper upload cap
 const BLOB_FETCH_TIMEOUT_MS = 20_000;
 const GROQ_FETCH_TIMEOUT_MS = 35_000;
+const BLOB_DELETE_TIMEOUT_MS = 8_000;
 
 function withTimeout(promiseFactory, timeoutMs, label) {
   const controller = new AbortController();
@@ -200,18 +201,27 @@ export default async function handler(req, res) {
       lines = [];
     }
 
-    // Storage hygiene: awaited (not fire-and-forget) so the function fully
-    // finishes its own work before responding, rather than leaving a
-    // dangling promise after the response is sent.
-    try {
-      await del(audioUrl);
-      console.log('[whisper-transcribe] temporary blob deleted');
-    } catch (err) {
-      console.warn('[whisper-transcribe] blob cleanup failed (non-fatal)', err);
-    }
-
     console.log('[whisper-transcribe] sending response to client', { lineCount: lines.length });
     res.status(200).json({ lines, usedAI: true });
+
+    // Storage hygiene, done AFTER responding — this must never block the
+    // user's result. It previously ran with `await` before the response,
+    // which meant a slow or hung Blob delete call (no timeout at all) could
+    // stall the entire response indefinitely. It's now fire-and-forget with
+    // its own short timeout: worst case on failure is a stale temp blob,
+    // which is a non-issue compared to blocking the transcription result.
+    (async () => {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), BLOB_DELETE_TIMEOUT_MS);
+      try {
+        await del(audioUrl, { abortSignal: controller.signal });
+        console.log('[whisper-transcribe] temporary blob deleted');
+      } catch (err) {
+        console.warn('[whisper-transcribe] blob cleanup failed (non-fatal)', err);
+      } finally {
+        clearTimeout(timer);
+      }
+    })();
   } catch (err) {
     // Final safety net: any unexpected throw anywhere above still produces
     // exactly one clean JSON response instead of the function hanging or
