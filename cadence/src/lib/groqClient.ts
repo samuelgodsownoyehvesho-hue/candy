@@ -5,10 +5,12 @@ export interface TranscriptionResult {
   lines: LyricLine[];
 }
 
-// Just under Vercel's configured maxDuration (60s) for the transcribe
-// function — if we haven't heard back by then, the function itself is
-// about to be killed anyway, so we surface a clear message instead of
-// leaving the person staring at a spinner that will never resolve.
+// The upload step (browser -> Vercel Blob storage directly) previously had
+// no timeout at all — if it stalled, the whole flow hung forever before
+// ever reaching /api/whisper-transcribe, which is exactly what the Vercel
+// Function Logs showed: a single successful /api/audio-upload entry (the
+// token handshake) and nothing after it.
+const UPLOAD_TIMEOUT_MS = 30_000;
 const TRANSCRIBE_TIMEOUT_MS = 55_000;
 
 function fetchWithTimeout(url: string, init: RequestInit, timeoutMs: number): Promise<Response> {
@@ -26,28 +28,51 @@ function fetchWithTimeout(url: string, init: RequestInit, timeoutMs: number): Pr
  * approach had — uploads are limited only by Groq's own ~25MB Whisper API
  * cap instead.
  *
- * Returns an error object (rather than throwing) on any failure —
- * including running locally under plain `vite dev` with no serverless
- * runtime, a missing/invalid GROQ_API_KEY, a missing Blob store, or the
- * transcription taking longer than Vercel's function time limit — so the
- * caller can show a clear message and fall back to adding lines manually.
- * Every step is logged so browser console output can be correlated with
- * Vercel's Function Logs for the same request.
+ * Both the upload step and the transcribe request have their own
+ * independent timeouts, so a stall in either one surfaces a clear error
+ * instead of leaving the UI stuck indefinitely. Every step is logged so
+ * browser console output can be correlated with Vercel's Function Logs.
  */
 export async function requestTranscription(
   audioBlob: Blob,
   fileName: string,
   mimeType: string,
 ): Promise<TranscriptionResult | { error: string }> {
+  const uploadController = new AbortController();
+  const uploadTimer = window.setTimeout(() => uploadController.abort(), UPLOAD_TIMEOUT_MS);
+
+  let uploadedUrl: string;
   try {
     console.log('[groqClient] uploading audio to Vercel Blob', { fileName, size: audioBlob.size, mimeType });
 
     const uploaded = await upload(fileName, audioBlob, {
       access: 'public',
       handleUploadUrl: '/api/audio-upload',
+      abortSignal: uploadController.signal,
+      onUploadProgress: ({ percentage }) => {
+        console.log('[groqClient] upload progress', `${percentage}%`);
+      },
     });
 
-    console.log('[groqClient] upload complete', { url: uploaded.url });
+    uploadedUrl = uploaded.url;
+    console.log('[groqClient] upload complete', { url: uploadedUrl });
+  } catch (err) {
+    if (err instanceof DOMException && err.name === 'AbortError') {
+      console.error('[groqClient] upload timed out client-side after', UPLOAD_TIMEOUT_MS, 'ms');
+      return {
+        error:
+          'Uploading the audio timed out after 30 seconds. This can happen on a slow or unstable connection — try again, or try a smaller file.',
+      };
+    }
+    console.error('[groqClient] upload failed', err);
+    return {
+      error: err instanceof Error ? `Could not upload the audio: ${err.message}` : 'Could not upload the audio.',
+    };
+  } finally {
+    window.clearTimeout(uploadTimer);
+  }
+
+  try {
     console.log('[groqClient] POSTing to /api/whisper-transcribe');
 
     const res = await fetchWithTimeout(
@@ -55,7 +80,7 @@ export async function requestTranscription(
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ audioUrl: uploaded.url, fileName, mimeType }),
+        body: JSON.stringify({ audioUrl: uploadedUrl, fileName, mimeType }),
       },
       TRANSCRIBE_TIMEOUT_MS,
     );
@@ -77,7 +102,7 @@ export async function requestTranscription(
     return { lines: data.lines };
   } catch (err) {
     if (err instanceof DOMException && err.name === 'AbortError') {
-      console.error('[groqClient] request timed out client-side after', TRANSCRIBE_TIMEOUT_MS, 'ms');
+      console.error('[groqClient] transcribe request timed out client-side after', TRANSCRIBE_TIMEOUT_MS, 'ms');
       return {
         error:
           "Transcription timed out after 55 seconds. Longer tracks can take a while — try a shorter clip, or check your Vercel project's Function Logs to see how far it got.",
@@ -87,7 +112,7 @@ export async function requestTranscription(
     return {
       error:
         err instanceof Error && err.message
-          ? `Could not upload or transcribe this file: ${err.message}`
+          ? `Could not transcribe this file: ${err.message}`
           : 'Could not reach the transcription service. This only runs on Vercel (or via `vercel dev` locally) — plain `vite dev` does not run serverless functions.',
     };
   }
