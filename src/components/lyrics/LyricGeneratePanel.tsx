@@ -37,7 +37,8 @@ export function LyricGeneratePanel({
 
       {isGenerating && (
         <p className="text-xs text-ink-dim">
-          Listening to your track and detecting words — this can take a moment for longer songs.
+          Uploading and transcribing — this can take up to a minute for a full
+          song. Please don't close this tab while it's running.
         </p>
       )}
 

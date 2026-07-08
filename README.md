@@ -66,6 +66,15 @@ rather than kept as a guess dressed up as AI:
   (`void`, `ink`) genuinely theme-reactive via CSS custom properties defined
   in `index.css`, so they adapt automatically everywhere without needing a
   variant class on every element
+- **Fixed transcription silently hanging**: `vercel.json` never configured
+  a `maxDuration` for the serverless functions, so they were running under
+  Vercel's short default execution limit — a real song easily takes longer
+  than that to fetch, send to Groq, and transcribe, so the function was
+  likely being killed mid-request with no clean response reaching the
+  browser (looks exactly like an infinite "Transcribing…" spinner). Fixed
+  by explicitly setting `maxDuration: 60` for `whisper-transcribe.js`
+  (Vercel Hobby's confirmed max) and adding a client-side 55-second timeout
+  so a genuine hang now surfaces a clear error instead of spinning forever
 
 **Also fixed in this slice:** a 404-on-refresh bug on Vercel deployments —
 Slice 1 shipped `netlify.toml`'s SPA redirect rule but never added the
@@ -370,6 +379,13 @@ into a local `.env`).
   confirm a Blob store is connected under your Vercel project's **Storage**
   tab; without one, `BLOB_READ_WRITE_TOKEN` won't exist and the upload step
   will fail before it ever reaches Groq.
+- **"Transcribe lyrics with AI" hangs / spins forever** — should now
+  surface a clear timeout error after ~55 seconds instead. If it still just
+  hangs, check **Vercel's dashboard → your project → the specific
+  deployment → Functions/Logs tab** for `whisper-transcribe` — that's where
+  the actual runtime error or timeout will show. A local terminal (Acode,
+  Termux, etc.) has no visibility into your live Vercel deployment's
+  runtime at all; it only sees your local files and git.
 - **A 413 error during transcription** — the file exceeded Groq's own
   ~25MB Whisper API limit; try a shorter clip or a more compressed format.
 - **Light mode looked broken/washed out in an earlier build** — this was a
